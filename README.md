@@ -1,1 +1,1 @@
-# AFIS
+# AFIS (Automated Fingerprinting & Indentification System)
