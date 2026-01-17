@@ -139,3 +139,26 @@ minutiae = extract_minutiae(skeleton)
 print(f"Found {len(minutiae)} minutiae points")
 
 # visualize minutiae
+
+def visualize_minutiae(original_img, minutiae_points):
+    """Draw minutiae on the original image"""
+    img_color = cv2.cvtColor(original_img, cv2.COLOR_GRAY2BGR)
+    
+    for point in minutiae_points:
+        x, y = int(point['x']), int(point['y'])
+        color = (0, 255, 0) if point['type'] == 'ending' else (255, 0, 0)  # Green for endings, Blue for bifurcations
+        cv2.circle(img_color, (x, y), 3, color, -1)
+        
+        # Draw orientation line
+        angle = point['angle']
+        length = 10
+        end_x = int(x + length * np.cos(angle))
+        end_y = int(y + length * np.sin(angle))
+        cv2.line(img_color, (x, y), (end_x, end_y), color, 1)
+    
+    plt.figure(figsize=(10, 10))
+    plt.imshow(cv2.cvtColor(img_color, cv2.COLOR_BGR2RGB))
+    plt.title("Minutiae Points (Green: Endings, Blue: Bifurcations)")
+    plt.show()
+
+visualize_minutiae(img, minutiae[:50])  # Show first 50 minutiae
