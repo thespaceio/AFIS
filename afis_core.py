@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
 AFIS Core Module - Contains all core classes for fingerprint recognition
-Author: AFIS Developer
+Author: SPACEIO
 Date: 2026
 """
+
+# Rememeber to remove some comments at the end of Project 
 
 # ============================================================================
 # IMPORT MODULES
