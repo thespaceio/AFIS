@@ -1,3 +1,5 @@
+# This code should still be kept safe as a prototype for what was made
+
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
@@ -162,3 +164,4 @@ def visualize_minutiae(original_img, minutiae_points):
     plt.show()
 
 visualize_minutiae(img, minutiae[:50])  # Show first 50 minutiae
+
