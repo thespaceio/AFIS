@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+# Reminder, make a GUI after the completion of the code 
+
 """
 AFIS Core Module - Contains all core classes for fingerprint recognition
 Author: SPACEIO
