@@ -1,0 +1,28 @@
+fingerprint_afis/
+│
+├── README.md
+├── requirements.txt
+├── main.py                          # Entry point: runs demos or CLI
+│
+├── afis/                            # Main package
+│   ├── __init__.py                  # Makes "afis" a package
+│   ├── acquisition.py                # FingerprintAcquisition class
+│   ├── preprocessing.py              # PreprocessingPipeline class
+│   ├── features.py                   # Minutia class & FeatureExtractor
+│   ├── template.py                   # FingerprintTemplate & TemplateDatabase
+│   ├── matching.py                    # FingerprintMatcher class
+│   └── system.py                      # AFISSystem (integrates everything)
+│
+├── utils/                            # Helper modules
+│   ├── __init__.py
+│   ├── visualization.py               # Plotting functions
+│   └── metrics.py                     # FAR/FRR calculation
+│
+├── data/                              # Fingerprint images (not code)
+│   └── FVC2002/                        # Dataset folder
+│
+├── tests/                              # Unit tests (optional)
+│   └── test_preprocessing.py
+│
+└── notebooks/                          # Jupyter notebooks for exploration
+    └── demo.ipynb
