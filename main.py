@@ -11,7 +11,7 @@ import cv2
 import numpy as np
 
 # Import the AFIS system from our core module
-from afis_core import AFISSystem
+from system import AFISSystem
 
 # ----------------------------------------------------------------------
 # Helper functions for console output
