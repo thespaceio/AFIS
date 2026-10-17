@@ -18,7 +18,6 @@ from __future__ import annotations
 import argparse
 import itertools
 import json
-import os
 import sys
 import time
 from collections import defaultdict

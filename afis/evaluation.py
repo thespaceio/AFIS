@@ -14,7 +14,7 @@ multi-impression databases such as FVC2002 are the meaningful benchmark.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, Sequence
 
 import cv2
 import numpy as np

@@ -1,159 +1,175 @@
-```markdown
-# AFIS – Automated Fingerprint Identification System (Educational)
+# AFIS – Automated Fingerprint Identification System
 
-A complete, educational implementation of an Automated Fingerprint Identification System (AFIS) written in Python. This project demonstrates the full fingerprint recognition pipeline from image acquisition to matching and secure storage.
+A complete fingerprint recognition system in Python: image enhancement, minutiae extraction, rotation-invariant matching, an **encrypted** template database with an audit log, a desktop GUI, a CLI, and an evaluation suite that measures accuracy with standard biometric metrics.
 
-## Features
+Built by **Faith Alabi** ([SPACEIO](https://github.com/thespaceio)) as a security-engineering portfolio project.
 
-- **Image Acquisition** – loading and validating fingerprint images with quality checks (contrast, dimensions)
-- **Full Preprocessing Pipeline** – noise reduction, contrast normalization (CLAHE), Gabor filter enhancement, orientation & frequency estimation, binarization, morphological cleaning, and skeletonization
-- **Feature Extraction** – minutiae detection (ridge endings and bifurcations) using crossing number, plus global features (core/delta points, pattern classification: arch/loop/whorl)
-- **Template Creation & Storage** – compact fingerprint templates with SHA‑256 hashing, stored in a SQLite database with indexing and audit logging
-- **Matching** – 1:1 verification and 1:N identification using geometric alignment of minutiae with configurable spatial/angular tolerances
-- **Interactive Demo** – command-line interface for enrollment, verification, identification, and system statistics
+![Verify screen: a genuine match with matched minutiae joined across the two impressions](docs/gui_verify_match.png)
 
-## Requirements
+## Highlights
 
-- Python 3.7+
-- OpenCV (`opencv-python`)
-- NumPy
-- SciPy (optional, used for some smoothing)
-- Matplotlib (for visualizations)
+- **End-to-end pipeline**: segmentation → orientation field → ridge frequency → Gabor enhancement → skeleton → minutiae → core/delta detection → pattern class
+- **Matching that handles rotation and placement**: local minutiae structures propose alignments, which are refined with a least-squares (Kabsch) fit
+- **Measured accuracy**: EER 0.84% on 2,850 comparisons (see [Accuracy](#accuracy) for what that data is)
+- **Security by design**: templates and images encrypted at rest (Fernet), SHA-256 integrity check on every template, JSON instead of `pickle`, parameterised SQL, audit log of every enrol/verify/identify/delete
+- **Fast**: ~0.3 s to process a 500 dpi print, ~4 ms per comparison
+- **Desktop app** (PySide6) with a stage-by-stage pipeline viewer, plus a scriptable CLI and Python API
+- **Tested**: 19 pytest tests, including tamper detection and a headless GUI run
 
-Install dependencies with:
+## Screenshots
+
+| Analyse: every pipeline stage | Identify: 1:N search |
+|---|---|
+| ![](docs/gui_analyse.png) | ![](docs/gui_identify.png) |
+| **Verify: impostor rejected** | **Audit log** |
+| ![](docs/gui_verify_reject.png) | ![](docs/gui_audit.png) |
+
+## How it works
+
+![Pipeline stages](docs/pipeline.png)
+
+| Stage | Method |
+|---|---|
+| Segmentation | Block standard deviation with an Otsu threshold, largest connected region, holes filled |
+| Normalisation | Zero mean / unit variance over the finger area only |
+| Orientation field | Gradient structure tensor, smoothed in the **doubled-angle** domain so 0° and 180° don't cancel out; coherence as a reliability measure |
+| Ridge frequency | Each 32 px block is rotated so ridges are vertical, projected, and the peak spacing measured |
+| Enhancement | Bank of 60 even-symmetric Gabor filters (every 3°) tuned to the measured ridge wavelength (Hong, Wan & Jain 1998) |
+| Thinning | Binarise (ridges = filter response < 0), remove fragments, skeletonise |
+| Minutiae | Crossing number (CN 1 = ending, CN 3 = bifurcation); direction from ridge tracing; removes border points, spurs, short ridges, broken ridges and bridges |
+| Singular points | Poincaré index with differences wrapped to ±π/2 (ridge orientation is defined modulo π) → cores, deltas, and arch / loop / whorl |
+| Matching | k-nearest-neighbour local structures (distance, radial angle, relative direction) → candidate alignments → one-to-one pairing within 12 px / 25° → Kabsch refinement → score m² / (n₁·n₂) over the overlap |
+
+### What changed in v2
+
+Version 1 couldn't run (`main.py` imported a deleted module), and its output was noise. The Gabor filters used a 1-pixel wavelength and were rotated 90°, binarisation kept valleys instead of ridges, the simplified thinning left blobs, and core detection wrapped angles by 2π. Genuine pairs scored 0.22 against 0.19 for impostors.
+
+![Before and after](docs/before_after.png)
+
+## Accuracy
+
+`scripts/evaluate.py` scores every genuine pair (same finger) and impostor pair (different fingers), then reports FAR, FRR and the equal error rate (EER).
+
+![Score distributions and FAR/FRR curves](docs/evaluation.png)
+
+| Metric | Value |
+|---|---|
+| Genuine / impostor comparisons | 324 / 2,526 |
+| Equal error rate | **0.84 %** |
+| At the default threshold (0.18) | FAR 0.04 % · FRR 3.4 % |
+| FRR when FAR = 1 % | 0.6 % |
+| Processing / matching time | 0.42 s per image / 4 ms per comparison |
+
+**How to read this honestly:** the data is 6 real prints (4 from FVC2002 DB1, 2 others), 8 synthetic impressions per finger (rotation ±25°, translation, skin-elasticity distortion, dry/wet pressure, noise, partial capture), and mirrored prints as extra fingers. It shows that the pipeline and matcher work and are tuned sensibly. Error rates on a full real database such as **FVC2002 DB1_B** will be higher. Reproduce or extend with:
 
 ```bash
+python scripts/evaluate.py path/to/FVC2002/DB1_B                     # standard FVC protocol
+python scripts/evaluate.py samples --augment 8 --mirror --all-impostors
+```
+
+The script writes `results/summary.json` and `results/score_report.png`, and reports the threshold for a target false-accept rate.
+
+## Security design
+
+| Concern | What AFIS does |
+|---|---|
+| Templates at rest | Encrypted with Fernet (AES-128-CBC + HMAC-SHA256). The key comes from `AFIS_KEY` or an owner-only `*.key` file next to the database |
+| Tampering | Each template carries a SHA-256 hash of its minutiae. Decryption failures and hash mismatches raise `TemplateIntegrityError` |
+| Unsafe deserialisation | Templates are JSON. v1 used `pickle`, which can execute code from a tampered database |
+| SQL injection | Every query is parameterised |
+| Accountability | `audit_log` table records enrolments, verifications (with score), identifications and deletions |
+| Data minimisation | Set `store_images=False` to keep templates only. Images are stored (encrypted) solely to draw match visualisations |
+| Secrets in git | `.gitignore` excludes `*.db`, `*.key` and fingerprint images |
+
+## Getting started
+
+Requires Python 3.9+.
+
+```bash
+git clone https://github.com/thespaceio/AFIS.git
+cd AFIS
+python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## Project Structure
+Get sample prints: download **FVC2002 DB1_B** (free) and extract the `.tif` files into `samples/` (see [samples/README.md](samples/README.md)).
 
-```
-afis_project/
-├── afis_core.py               # All core classes (acquisition, preprocessing, extraction, matching, database, system)
-├── main.py                    # Interactive demo CLI
-├── requirements.txt
-├── fingerprint_templates.db   # Created automatically
-└── README.md
-```
-
-## Usage
-
-### Interactive Demo
-
-Run the demo with:
+### Desktop app
 
 ```bash
-python main.py
+python -m afis.gui
 ```
 
-Available commands:
+The database is stored in `~/.afis/` (override with `AFIS_DB`). Drag and drop images onto any screen.
 
-- `enroll` – add a new fingerprint (provide person ID and image path)
-- `verify` – check if a fingerprint matches a claimed identity
-- `identify` – find the best matching person(s) from the database
-- `stats` – show system statistics (templates, preprocessing times, minutiae counts)
-- `delete` – remove all templates of a person
-- `quit` – exit
+### Command line
 
-### Example Session
-
-```
-> enroll
-Enter person ID (e.g., 'john_doe'): alice
-Select finger position (optional, press Enter to skip):
-  1 - Right thumb
-  ...
-Position (1-10, or blank): 1
-Enter image path: sample_fingerprints/alice_thumb.png
-Processing image: sample_fingerprints/alice_thumb.png ...
-✅ Enrollment successful: 56 minutiae, pattern: loop
+```bash
+python -m afis                                   # interactive menu
+python -m afis enroll alice samples/101_1.tif --finger 2
+python -m afis verify alice samples/101_2.tif    # exit code 0 = verified
+python -m afis identify samples/101_3.tif --top 3
+python -m afis stats
+python -m afis delete alice
 ```
 
-```
-> identify
-Enter image path: unknown.png
-Number of top candidates to show (default 5): 3
-Identifying fingerprint...
-Top candidates:
-  1. alice – score: 0.678 (matches: 38)
-  2. bob – score: 0.123 (matches: 7)
-  3. charlie – score: 0.095 (matches: 4)
-```
-
-### Using the Code Directly
+### Python API
 
 ```python
-from afis_core import AFISSystem
+from afis import AFISSystem
 
-afis = AFISSystem()
+afis = AFISSystem("afis_templates.db")
+afis.enroll("samples/101_1.tif", "alice", finger_position=2)
 
-# Enroll a fingerprint
-template = afis.enroll("fingerprint.tif", "user123", finger_position=1)
+is_match, score, details = afis.verify("samples/101_2.tif", "alice")
+ranked = afis.identify("samples/101_3.tif", top_k=3)      # [(person_id, score, details), ...]
 
-# Verify
-is_match, score, details = afis.verify("query.tif", "user123")
-
-# Identify
-results = afis.identify("unknown.tif", top_k=3)
-
-# Statistics
-stats = afis.get_statistics()
+p = afis.process("samples/101_1.tif")                     # every intermediate stage
+print(len(p.minutiae), p.global_features["pattern_type"], p.result.quality)
 ```
 
-## How It Works (Briefly)
+## Project structure
 
-1. **Acquisition** – loads the image, validates contrast and dimensions, resizes to 500×500.
-2. **Preprocessing**:
-   - Non‑local means denoising + median filter
-   - CLAHE contrast normalization
-   - Orientation field estimation (gradient‑based)
-   - Ridge frequency estimation
-   - Gabor filter enhancement
-   - Adaptive thresholding + morphological cleaning
-   - Zhang‑Suen skeletonization
-3. **Feature Extraction**:
-   - Minutiae detected using crossing number on the skeleton
-   - Spurious minutiae removed (border and close pairs)
-   - Global singular points (core/delta) via Poincaré index
-   - Pattern classification based on core/delta counts
-4. **Template**:
-   - Stores minutiae list and global features
-   - Generates a hash for fast pre‑matching
-   - Serializable to bytes for database storage
-5. **Matching**:
-   - Finds optimal alignment by trying multiple minutiae pairs
-   - Counts matching minutiae within spatial and angular tolerances
-   - Optionally refines alignment using all matched points
-   - Returns a score between 0 and 1
-6. **Database**:
-   - SQLite with indexes on pattern type and minutiae count
-   - Audit log records all operations (save, load, delete)
+```
+afis/
+  acquisition.py    load and validate images (native resolution, no stretching)
+  preprocessing.py  segmentation, orientation, frequency, Gabor enhancement, skeleton
+  features.py       minutiae (crossing number + tracing + spurious removal), cores/deltas, pattern
+  matching.py       local structures, alignment, pairing, Kabsch refinement, scoring
+  template.py       JSON templates with integrity hash
+  database.py       encrypted SQLite store and audit log
+  system.py         AFISSystem: enrol / verify / identify
+  evaluation.py     FAR, FRR, EER, plots, synthetic impressions
+  visualization.py  minutiae and match drawings
+  cli.py            command-line interface
+  gui/              PySide6 desktop app
+scripts/
+  evaluate.py         accuracy evaluation
+  gui_screenshots.py  regenerates docs/ screenshots off-screen
+tests/                pytest suite
+```
 
-## Performance Notes
+## Tests
 
-- Designed for educational purposes – not production‑ready.
-- Matching is linear after indexing; for large databases, further optimization (e.g., MCC descriptors, deep learning) would be needed.
-- Default parameters work well for standard FVC2002 images; adjust `config` dictionaries in each class for fine‑tuning.
+```bash
+pip install pytest
+pytest                                  # tests needing sample prints are skipped if samples/ is empty
+AFIS_SAMPLES=samples pytest -v
+```
 
-## Ethical Considerations
+## Limitations and ethics
 
-- This project is intended **only for educational and research purposes**.
-- Do **not** use for real‑world security or forensic applications without thorough validation.
-- The database includes an audit log to track all operations.
-- When handling real fingerprint images, ensure compliance with data protection regulations (e.g., GDPR).
+- Built for learning and demonstration, **not** for real access control or forensic use without a much larger evaluation.
+- Single-resolution assumptions (~500 dpi). Latent prints and very low-quality images are out of scope.
+- Fingerprints are sensitive, irrevocable biometric data. Only enrol prints with consent, keep the key file private, and follow the applicable data protection law (e.g. NDPA in Nigeria, GDPR in the EU).
+
+## References
+
+- Hong, Wan & Jain (1998). *Fingerprint image enhancement: algorithm and performance evaluation*. IEEE TPAMI 20(8).
+- Maltoni, Maio, Jain & Prabhakar. *Handbook of Fingerprint Recognition*, Springer.
+- Jiang & Yau (2000). *Fingerprint minutiae matching based on the local and global structures*. ICPR.
+- FVC2002 – Second International Fingerprint Verification Competition, University of Bologna.
 
 ## License
 
-MIT License – free for academic and educational use.
-
-## Acknowledgments
-
-- Inspired by the *Handbook of Fingerprint Recognition* by Maltoni, Maio, Jain, and Prabhakar.
-- FVC2002/FVC2004 datasets for benchmarking.
-- OpenCV, scikit‑image, and the Python scientific ecosystem.
-
----
-
-*For questions or contributions, please open an issue on the repository.*
-```
+MIT
