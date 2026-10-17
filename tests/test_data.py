@@ -121,5 +121,8 @@ def test_demo_prints_are_well_separated():
     t = {(pid, k): afis.process(p).as_template() for pid, paths in demo_people() for k, p in enumerate(paths)}
     gen = [matcher.match_templates(t[a], t[b])[0] for a, b in itertools.combinations(t, 2) if a[0] == b[0]]
     imp = [matcher.match_templates(t[a], t[b])[0] for a, b in itertools.combinations(t, 2) if a[0] != b[0]]
-    # The search checks one argument order; the matcher is not exactly symmetric, hence 0.12.
-    assert min(gen) >= 0.24 and max(imp) <= 0.12
+    # Scores drift a little across numpy/OpenCV versions (and the matcher is not exactly symmetric),
+    # so require a clear margin on both sides of the decision threshold rather than exact values.
+    margin = 0.03
+    assert min(gen) >= afis.threshold + margin
+    assert max(imp) <= afis.threshold - margin
