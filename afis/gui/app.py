@@ -48,6 +48,9 @@ RESPONSIBLE_USE = (
 
 
 def app_icon() -> QIcon:
+    icon_file = Path(__file__).resolve().parent / "icon.png"
+    if icon_file.exists():
+        return QIcon(str(icon_file))
     pix = QPixmap(64, 64)
     pix.fill(Qt.transparent)
     p = QPainter(pix)
@@ -912,6 +915,12 @@ def main(argv=None) -> int:
     if "--version" in argv:
         print(f"AFIS {__version__}")
         return 0
+    smoke = "--smoke-test" in argv            # CI: open the real window on a scratch database, then quit
+    if smoke:
+        import os
+        import tempfile
+        os.environ["AFIS_HOME"] = tempfile.mkdtemp(prefix="afis-smoke-")
+        os.environ.pop("AFIS_DB", None)
     app = QApplication.instance() or QApplication(argv)
     app.setApplicationName("AFIS")
     app.setApplicationVersion(__version__)
@@ -921,7 +930,7 @@ def main(argv=None) -> int:
 
     db_path = default_db_path()
     settings = Settings.load(Path(db_path).parent)
-    if "--accept-notice" not in argv and not show_notice(None, settings, Path(db_path).parent):
+    if not smoke and "--accept-notice" not in argv and not show_notice(None, settings, Path(db_path).parent):
         return 0
     try:
         win = MainWindow(db_path, settings)
@@ -934,6 +943,18 @@ def main(argv=None) -> int:
         QMessageBox.critical(None, "AFIS — startup error", f"AFIS could not start:\n\n{e}\n\nDatabase: {db_path}")
         return 2
     win.show()
+    if smoke:
+        from PySide6.QtCore import QTimer
+
+        def check():
+            people = win.afis.enroll_demo(2)
+            ranked = win.afis.identify(str(demo_dir() / "demo-02_3.png"), 1)
+            ok = ranked and ranked[0][0] == people[1]
+            print(f"smoke-test: window={win.isVisible()} pages={len(win.pages)} "
+                  f"identify={'ok' if ok else 'FAILED'}", flush=True)
+            app.exit(0 if ok and win.isVisible() else 1)
+
+        QTimer.singleShot(500, check)
     return app.exec()
 
 

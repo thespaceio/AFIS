@@ -40,7 +40,7 @@ version = { attr = "afis.__version__" }
 include = ["afis*"]
 
 [tool.setuptools.package-data]
-afis = ["demo_prints/*.png"]
+afis = ["demo_prints/*.png", "gui/icon.png"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

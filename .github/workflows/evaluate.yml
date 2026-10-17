@@ -1,0 +1,75 @@
+name: Accuracy (FVC2002)
+
+# Measures matching accuracy on the public FVC2002 "B" databases
+# (4 sensors x 10 fingers x 8 impressions), downloaded at run time from the
+# official FVC2002 site. The images are used for evaluation only and are never
+# committed or published; only scores and summaries are uploaded.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, "claude/**"]
+    paths: ["afis/**", "scripts/evaluate.py", ".github/workflows/evaluate.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evaluate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fvc2002:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install . matplotlib
+      - name: Download FVC2002 DB1_B ... DB4_B (official site)
+        run: |
+          mkdir -p data && cd data
+          for db in DB1_B DB2_B DB3_B DB4_B; do
+            ok=0
+            for url in "http://bias.csr.unibo.it/fvc2002/Downloads/$db.zip" "https://bias.csr.unibo.it/fvc2002/Downloads/$db.zip"; do
+              if curl -fsSL --retry 3 --max-time 300 -o "$db.zip" "$url"; then ok=1; break; fi
+            done
+            [[ $ok == 1 ]] || { echo "::error::could not download $db"; exit 1; }
+            mkdir -p "$db" && unzip -q -o "$db.zip" -d "$db"
+            # Flatten in case the archive has a folder inside.
+            find "$db" -mindepth 2 -type f -exec mv -t "$db" {} + 2>/dev/null || true
+            echo "$db: $(ls $db | grep -ci '\.tif$') images"
+          done
+      - name: Evaluate each database (FVC protocol)
+        run: |
+          for db in DB1_B DB2_B DB3_B DB4_B; do
+            python scripts/evaluate.py "data/$db" --out "results/$db" --title "FVC2002 $db (FVC protocol)" | tail -n 40
+          done
+      - name: Evaluate all four databases (all cross-finger impostor pairs)
+        run: |
+          python scripts/evaluate.py data/DB1_B data/DB2_B data/DB3_B data/DB4_B --all-impostors \
+            --out results/all --title "FVC2002 DB1-4_B, all impostor pairs"
+      - name: Summary
+        run: |
+          python - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          import json, pathlib
+          rows = []
+          for d in ["DB1_B", "DB2_B", "DB3_B", "DB4_B", "all"]:
+              s = json.loads(pathlib.Path(f"results/{d}/summary.json").read_text())
+              rows.append(f"| {d} | {s['images']} | {s['genuine_pairs']} | {s['impostor_pairs']} | "
+                          f"{s['eer']*100:.2f}% | {s['far_at_current_threshold']*100:.2f}% | "
+                          f"{s['frr_at_current_threshold']*100:.2f}% | {s['frr_at_far_1pct']*100:.2f}% | "
+                          f"{s['failure_to_enrol_rate']*100:.1f}% |")
+          print("## FVC2002 accuracy\n")
+          print("| Set | Images | Genuine | Impostor | EER | FAR @0.18 | FRR @0.18 | FRR @FAR=1% | Below enrol gate |")
+          print("|---|---|---|---|---|---|---|---|---|")
+          print("\n".join(rows))
+          EOF
+          cat "$GITHUB_STEP_SUMMARY"
+          for d in DB1_B DB2_B DB3_B DB4_B all; do echo "== $d"; cat results/$d/summary.json; done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fvc2002-results
+          path: results/

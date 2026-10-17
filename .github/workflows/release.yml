@@ -1,0 +1,184 @@
+name: Build & release
+
+# Builds self-contained desktop bundles (no Python needed) for Linux, Windows and
+# macOS, smoke-tests each one, and - on a version tag, a manual run, or a push to
+# main whose version has no release yet - publishes them as a GitHub Release.
+on:
+  push:
+    branches: [main, "claude/**"]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish a GitHub Release for the version in afis/__init__.py"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      publish: ${{ steps.v.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(python3 -c "import re;print(re.search(r'__version__ = \"(.+?)\"', open('afis/__init__.py').read())[1])")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          PUBLISH=false
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            [[ "$GITHUB_REF_NAME" == "v$VERSION" ]] || { echo "tag $GITHUB_REF_NAME != v$VERSION"; exit 1; }
+            PUBLISH=true
+          elif [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "${{ inputs.publish }}" == true ]]; then
+            PUBLISH=true
+          elif [[ "$GITHUB_REF" == refs/heads/main ]] && ! gh release view "v$VERSION" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            PUBLISH=true
+          fi
+          echo "publish=$PUBLISH" >> "$GITHUB_OUTPUT"
+          echo "AFIS $VERSION - publish: $PUBLISH"
+
+  build:
+    needs: version
+    name: Bundle (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04, name: linux-x86_64 }
+          - { os: windows-latest, name: windows-x64 }
+          - { os: macos-latest, name: macos-arm64 }
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      QT_QPA_PLATFORM: offscreen
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Qt system libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 \
+            libfontconfig1 libdbus-1-3 libfuse2
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install . pytest pyinstaller pillow
+      - name: Tests (release gate)
+        run: python -m pytest -q
+      - name: Build bundle
+        run: pyinstaller packaging/afis.spec --noconfirm
+
+      - name: Smoke-test bundle (Linux / macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == macOS ]]; then B=dist/AFIS.app/Contents/MacOS; DEMO=dist/AFIS.app/Contents/Resources/afis/demo_prints
+          else B=dist/AFIS; DEMO=dist/AFIS/_internal/afis/demo_prints; fi
+          [[ -d "$DEMO" ]] || DEMO=$(find dist -type d -name demo_prints | head -1)
+          export AFIS_HOME=$(mktemp -d)
+          "$B/afis" --version
+          "$B/afis" demo
+          "$B/afis" identify "$DEMO/demo-03_2.png"
+          "$B/afis" check
+          "$B/AFIS" --smoke-test
+      - name: Smoke-test bundle (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          export AFIS_HOME=$(mktemp -d)
+          dist/AFIS/afis-cli.exe --version
+          dist/AFIS/afis-cli.exe demo
+          dist/AFIS/afis-cli.exe identify dist/AFIS/_internal/afis/demo_prints/demo-03_2.png
+          dist/AFIS/afis-cli.exe check
+          dist/AFIS/AFIS.exe --smoke-test
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cp packaging/linux/install.sh packaging/linux/uninstall.sh packaging/INSTALL.txt dist/AFIS/
+          tar -C dist -czf "AFIS-$VERSION-linux-x86_64.tar.gz" AFIS
+          # AppImage: a single file that runs on most distributions (incl. Kali).
+          mkdir -p AppDir/usr/lib && cp -a dist/AFIS AppDir/usr/lib/afis
+          cp packaging/afis.png AppDir/afis.png
+          cat > AppDir/afis.desktop <<'EOF'
+          [Desktop Entry]
+          Type=Application
+          Name=AFIS
+          Comment=Fingerprint identification (educational)
+          Exec=AFIS
+          Icon=afis
+          Categories=Education;Science;
+          EOF
+          sed -i 's/^ *//' AppDir/afis.desktop
+          printf '#!/bin/sh\nHERE="$(dirname "$(readlink -f "$0")")"\nif [ "$1" = "cli" ]; then shift; exec "$HERE/usr/lib/afis/afis" "$@"; fi\nexec "$HERE/usr/lib/afis/AFIS" "$@"\n' > AppDir/AppRun
+          chmod +x AppDir/AppRun
+          curl -fsSL -o appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run AppDir "AFIS-$VERSION-x86_64.AppImage"
+          AFIS_HOME=$(mktemp -d) ./"AFIS-$VERSION-x86_64.AppImage" --appimage-extract-and-run cli --version
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Copy-Item packaging/INSTALL.txt dist/AFIS/
+          Compress-Archive -Path dist/AFIS -DestinationPath "AFIS-$env:VERSION-windows-x64.zip"
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cp packaging/INSTALL.txt dist/
+          ditto -c -k --keepParent dist/AFIS.app "AFIS-$VERSION-macos-arm64.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AFIS-${{ matrix.name }}
+          path: |
+            AFIS-*.tar.gz
+            AFIS-*.zip
+            AFIS-*.AppImage
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    needs: [version, build]
+    if: needs.version.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Checksums
+        run: |
+          cd artifacts
+          sha256sum AFIS-* > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      - name: Create or update the release
+        run: |
+          TAG="v$VERSION"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" artifacts/* --clobber
+          else
+            gh release create "$TAG" artifacts/* --target "$GITHUB_SHA" --title "AFIS $VERSION" \
+              --notes-file packaging/RELEASE_NOTES.md
+          fi

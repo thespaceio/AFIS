@@ -1,0 +1,45 @@
+AFIS - Automated Fingerprint Identification System
+===================================================
+
+This folder is self-contained: no Python installation is needed.
+
+LINUX (incl. Kali, Ubuntu, Debian, Fedora)
+  Run without installing:   ./AFIS              (command line: ./afis --help)
+  Install for your user:    ./install.sh        (adds "AFIS" to the app menu and
+                                                 `afis-gui` / `afis` commands)
+  Uninstall:                ~/.local/opt/afis/uninstall.sh   (keeps your data)
+                            add --purge to also delete the database and key
+  If the window doesn't open, install the Qt system libraries:
+      sudo apt install libegl1 libxkbcommon-x11-0 libxcb-cursor0 libfontconfig1 libdbus-1-3
+
+WINDOWS 10 / 11
+  Unzip, open the AFIS folder and double-click AFIS.exe.
+  Command line: afis-cli.exe --help
+  Windows SmartScreen may warn because the app is not code-signed:
+  click "More info" -> "Run anyway".
+  Uninstall: delete the folder (data is in %APPDATA%\AFIS).
+
+MACOS (Apple silicon)
+  Unzip and drag AFIS.app to Applications.
+  The app is not notarised: the first time, right-click AFIS.app -> Open -> Open.
+  (or run:  xattr -dr com.apple.quarantine /Applications/AFIS.app)
+  Command line: /Applications/AFIS.app/Contents/MacOS/afis --help
+  Uninstall: delete AFIS.app (data is in ~/Library/Application Support/AFIS).
+
+FIRST STEPS
+  Open AFIS, click "Load demo data" on the Home page, then try Identify with
+  demo-03_2.png. The demo prints are synthetic and belong to no one.
+
+YOUR DATA
+  The encrypted database and its key are stored per user (shown in Settings):
+    Linux    ~/.local/share/afis/
+    macOS    ~/Library/Application Support/AFIS/
+    Windows  %APPDATA%\AFIS\
+  Back up the .db and .key files together. Anyone with both can read the templates.
+
+RESPONSIBLE USE
+  Match scores are probabilistic. AFIS is educational software and has not been
+  validated for forensic, legal or law-enforcement decisions. Only enrol people
+  who have given informed consent.
+
+More: https://github.com/thespaceio/AFIS

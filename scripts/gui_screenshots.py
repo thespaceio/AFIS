@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """
-Regenerate the README screenshots: drives the GUI off-screen with sample prints.
+Regenerate the README screenshots by driving the real GUI with the bundled
+synthetic demo prints (no real fingerprints are shown).
 
-    QT_QPA_PLATFORM=offscreen python scripts/gui_screenshots.py samples docs
+    python scripts/gui_screenshots.py docs                      # off-screen
+    QT_QPA_PLATFORM=xcb python scripts/gui_screenshots.py docs  # under X / Xvfb (nicer fonts)
 """
 import os
 import sys
@@ -15,72 +17,71 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from cryptography.fernet import Fernet  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-from afis.gui.app import MainWindow  # noqa: E402
+from afis.demo import demo_dir  # noqa: E402
+from afis.gui import app as gui  # noqa: E402
 from afis.gui.style import STYLE  # noqa: E402
 
 
-def main(samples: Path, out: Path) -> None:
+def main(out: Path) -> None:
     out.mkdir(parents=True, exist_ok=True)
     os.environ["AFIS_KEY"] = Fernet.generate_key().decode()
     app = QApplication([])
     app.setStyleSheet(STYLE)
-    win = MainWindow(os.path.join(tempfile.mkdtemp(), "demo.db"))
+    win = gui.MainWindow(os.path.join(tempfile.mkdtemp(), "demo.db"))
     win.resize(1360, 900)
     win.show()
+    d = lambda f, i: str(demo_dir() / f"demo-{f:02d}_{i}.png")  # noqa: E731
 
     def settle():
-        for _ in range(5):
+        for _ in range(8):
             win.pool.waitForDone()
             app.processEvents()
 
-    def shot(name):
+    def shot(cls, name):
+        win.show_page(win.pages.index(win.page(cls)))
         settle()
         win.grab().save(str(out / name))
         print("saved", out / name)
 
-    s = lambda n: str(samples / n)  # noqa: E731
+    shot(gui.HomePage, "gui_home_empty.png")
+    win.page(gui.HomePage).load_demo()
+    settle()
+    shot(gui.HomePage, "gui_home.png")
 
-    # Analyse
-    win.show_page(0)
-    win.pages[0].drop.set_path(s("101_1.tif"))
-    shot("gui_analyse.png")
+    win.page(gui.AnalysePage).drop.set_path(d(2, 1))
+    shot(gui.AnalysePage, "gui_analyse.png")
 
-    # Enroll two people
-    enroll = win.pages[1]
-    win.show_page(1)
-    for person, img, finger in (("tolu.adeyemi", "102_1.tif", 2), ("faith.alabi", "101_1.tif", 2)):
-        enroll.drop.set_path(s(img))
-        enroll.person.setText(person)
-        enroll.finger.setCurrentIndex(finger)
-        enroll.enroll()
-        settle()
-    shot("gui_enroll.png")
+    enroll = win.page(gui.EnrollPage)
+    enroll.drop.set_path(d(1, 2))
+    enroll.person.setText("Adébáyọ̀ Ọlá")
+    enroll.finger.setCurrentIndex(7)
+    enroll.enroll()
+    settle()
+    shot(gui.EnrollPage, "gui_enroll.png")
 
-    # Verify: genuine, then impostor
-    verify = win.pages[2]
-    win.show_page(2)
-    verify.drop.set_path(s("101_2.tif"))
-    verify.person.setEditText("faith.alabi")
+    verify = win.page(gui.VerifyPage)
+    win.show_page(win.pages.index(verify))
+    verify.drop.set_path(d(2, 3))
+    verify.person.setEditText("demo-02")
     verify.verify()
-    shot("gui_verify_match.png")
-    verify.drop.set_path(s("102_2.tif"))
-    verify.person.setEditText("faith.alabi")
+    shot(gui.VerifyPage, "gui_verify_match.png")
+    verify.person.setEditText("demo-05")
     verify.verify()
-    shot("gui_verify_reject.png")
+    shot(gui.VerifyPage, "gui_verify_reject.png")
 
-    # Identify
-    ident = win.pages[3]
-    win.show_page(3)
-    ident.drop.set_path(s("102_2.tif"))
+    ident = win.page(gui.IdentifyPage)
+    ident.drop.set_path(d(3, 2))
     ident.identify()
-    shot("gui_identify.png")
+    shot(gui.IdentifyPage, "gui_identify.png")
 
-    win.show_page(4)
-    shot("gui_database.png")
-    win.show_page(5)
-    shot("gui_audit.png")
+    shot(gui.DatabasePage, "gui_database.png")
+    audit = win.page(gui.AuditPage)
+    audit.verify_chain()
+    shot(gui.AuditPage, "gui_audit.png")
+    win.page(gui.SettingsPage).check()
+    shot(gui.SettingsPage, "gui_settings.png")
     win.close()
 
 
 if __name__ == "__main__":
-    main(Path(sys.argv[1] if len(sys.argv) > 1 else "samples"), Path(sys.argv[2] if len(sys.argv) > 2 else "docs"))
+    main(Path(sys.argv[1] if len(sys.argv) > 1 else "docs"))
