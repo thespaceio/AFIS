@@ -7,6 +7,8 @@
 
 A desktop app for learning fingerprint recognition. It enhances fingerprint images, extracts minutiae, and lets you **enrol**, **verify** (1:1) and **identify** (1:N) people against an **encrypted, local** template database with a tamper-evident audit log. Everything runs offline on your computer.
 
+**▶ [Try the browser demo](https://thespaceio.github.io/AFIS/)**: no install, synthetic prints only, and it runs entirely on your device.
+
 Built by **Faith Alabi** ([SPACEIO](https://github.com/thespaceio)) as an educational and security-engineering project.
 
 > **Responsible use.** Match scores are *probabilistic*. AFIS is educational software and has **not** been validated for forensic, legal or law-enforcement decisions. Only enrol people who have given informed consent. See [Security & privacy](#security--privacy).
@@ -14,7 +16,30 @@ Built by **Faith Alabi** ([SPACEIO](https://github.com/thespaceio)) as an educat
 ![Identify: the best candidate, with matched minutiae joined across the two impressions](docs/gui_identify.png)
 
 ## Contents
-[Download & install](#download--install) · [Quick start](#quick-start) · [Features](#features) · [Screenshots](#screenshots) · [Command line](#command-line) · [How it works](#how-it-works) · [Accuracy](#accuracy) · [Security & privacy](#security--privacy) · [Troubleshooting](#troubleshooting) · [Development](#development) · [Licence](#licence)
+[Browser demo](#browser-demo) · [Download & install](#download--install) · [Quick start](#quick-start) · [Features](#features) · [Screenshots](#screenshots) · [Command line](#command-line) · [How it works](#how-it-works) · [Accuracy](#accuracy) · [Security & privacy](#security--privacy) · [Troubleshooting](#troubleshooting) · [Development](#development) · [Licence](#licence)
+
+## Browser demo
+
+**[thespaceio.github.io/AFIS](https://thespaceio.github.io/AFIS/)** runs the real AFIS engine (the same Python code as the desktop app) in your browser through [Pyodide](https://pyodide.org). Four synthetic demo people are enrolled; pick another print and try **Identify** (1:N), **Verify** (1:1) or **Analyse**, and move the threshold to see how the decision changes.
+
+- **Nothing leaves your device.** There's no server and no upload. The demo database is encrypted, lives in memory and disappears when you close the tab. The page loads its runtime from the same site rather than a third-party CDN.
+- **Synthetic prints only.** The demo doesn't accept your own images. To enrol real fingerprints, with consent, use the desktop app.
+- **First visit downloads about 70 MB** (Python, NumPy, SciPy, scikit-image and OpenCV). Your browser caches it. A recent desktop browser works best.
+- The demo prints are curated to be easy. Real scans perform much worse; see [Accuracy](#accuracy).
+
+![Browser demo: identifying a synthetic print](docs/web_demo.png)
+
+Build it yourself:
+
+```bash
+curl -LO https://github.com/pyodide/pyodide/releases/download/0.28.3/pyodide-0.28.3.tar.bz2
+tar xjf pyodide-0.28.3.tar.bz2
+python scripts/build_web.py --pyodide pyodide --out site
+python -m http.server -d site 8000        # then open http://localhost:8000
+python scripts/test_web.py site           # optional end-to-end test (pip install playwright)
+```
+
+The [Web demo workflow](.github/workflows/pages.yml) builds and tests it on every change and publishes it to GitHub Pages from `main`.
 
 ## Download & install
 
@@ -312,8 +337,10 @@ afis/
   visualization.py  minutiae and match drawings
   cli.py            command-line interface
   gui/              PySide6 desktop app
+web/                browser demo (Pyodide): page, worker and afis_web.py glue
 packaging/          PyInstaller spec, Linux install scripts, release notes
-scripts/            evaluate.py, gui_screenshots.py, make_figures.py, make_demo_prints.py
+scripts/            evaluate.py, gui_screenshots.py, make_figures.py, make_demo_prints.py,
+                    build_web.py, test_web.py
 tests/              pytest suite
 ```
 

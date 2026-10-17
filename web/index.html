@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AFIS Browser Demo</title>
+  <meta name="description" content="Try the AFIS fingerprint identification engine in your browser on synthetic demo prints. Runs entirely on your device.">
+  <link rel="icon" href="icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-inner">
+      <a class="brand" href="./"><img src="icon.png" alt="" width="28" height="28"><span>AFIS</span><small>browser demo</small></a>
+      <nav>
+        <a href="https://github.com/thespaceio/AFIS/releases/latest">Download the app</a>
+        <a href="https://github.com/thespaceio/AFIS">Source</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="intro">
+      <h1>Try fingerprint identification in your browser</h1>
+      <p class="lede">This page runs the real AFIS engine (the same Python code as the desktop app) on
+        <b>synthetic</b> fingerprints that belong to no one. Four demo people are enrolled from one print each;
+        pick another print and see whether AFIS finds the right person.</p>
+      <ul class="facts">
+        <li><b>Private by design.</b> Everything runs on your device. There is no upload, and the demo
+          database is held in memory and discarded when you close the tab.</li>
+        <li><b>Synthetic prints only.</b> The demo does not accept real fingerprints.</li>
+        <li><b>Probabilistic.</b> Scores are evidence, not proof of identity. AFIS is educational and has not
+          been validated for forensic or law-enforcement use. The demo prints are curated to be easy;
+          on real scans the error rate is much higher (see the <a href="https://github.com/thespaceio/AFIS#accuracy">accuracy notes</a>).</li>
+      </ul>
+    </section>
+
+    <section id="loading" class="card loading" aria-live="polite">
+      <div class="spinner" aria-hidden="true"></div>
+      <div>
+        <p id="load-text">Starting…</p>
+        <ol class="steps" id="steps">
+          <li>Python runtime</li><li>Scientific libraries</li><li>AFIS engine</li><li>Enrol demo people</li>
+        </ol>
+        <p class="muted small">The first visit downloads about 70 MB. Your browser caches it for next time.</p>
+      </div>
+    </section>
+
+    <section id="load-error" class="card error" hidden>
+      <h2>The demo could not start</h2>
+      <p id="load-error-text"></p>
+      <p class="muted">The demo needs a recent desktop browser with WebAssembly (Chrome, Edge, Firefox or Safari).
+        You can also <a href="https://github.com/thespaceio/AFIS/releases/latest">download the desktop app</a>.</p>
+    </section>
+
+    <div id="app" hidden>
+      <section>
+        <h2 class="section-title">Enrolled demo people</h2>
+        <div class="people" id="people"></div>
+      </section>
+
+      <section class="card workspace">
+        <div class="tabs" role="tablist">
+          <button role="tab" class="tab" data-mode="identify" aria-selected="true">Identify <span>1 : N</span></button>
+          <button role="tab" class="tab" data-mode="verify" aria-selected="false">Verify <span>1 : 1</span></button>
+          <button role="tab" class="tab" data-mode="analyse" aria-selected="false">Analyse</button>
+        </div>
+        <p class="mode-help" id="mode-help"></p>
+
+        <div class="controls">
+          <div class="control" id="claim-control" hidden>
+            <label for="claim">Claimed identity</label>
+            <select id="claim"></select>
+          </div>
+          <div class="control grow" id="threshold-control">
+            <label for="threshold">Match threshold <output id="threshold-value"></output></label>
+            <input type="range" id="threshold" min="0.05" max="0.6" step="0.01">
+            <span class="muted small">Higher = fewer false matches but more missed matches. Default 0.18.</span>
+          </div>
+        </div>
+
+        <h3 class="pick-title">Choose a print <span class="muted small" id="pick-hint"></span></h3>
+        <div class="prints" id="prints" role="listbox" aria-label="Demo prints"></div>
+
+        <div class="actions">
+          <button id="run" class="primary" disabled>Identify</button>
+          <span id="busy" class="muted" hidden><span class="dot"></span> Working…</span>
+        </div>
+      </section>
+
+      <section id="result" class="card result" hidden aria-live="polite"></section>
+    </div>
+  </main>
+
+  <footer class="wrap foot muted small">
+    AFIS <span id="version"></span> · MIT licence · Runs on <a href="https://pyodide.org">Pyodide</a>.
+    Educational software: do not use it to make decisions about real people.
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
