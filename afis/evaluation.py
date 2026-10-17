@@ -106,7 +106,9 @@ def synthetic_impression(image: np.ndarray, rng: np.random.Generator, strength: 
     """A plausible new impression of the same finger."""
     h, w = image.shape
     pad = int(0.2 * max(h, w))
-    img = cv2.copyMakeBorder(image, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=int(np.median(image)))
+    # Pad with the background (the light end of the histogram), not mid-gray.
+    background = int(np.percentile(image, 95))
+    img = cv2.copyMakeBorder(image, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=background)
     H, W = img.shape
 
     # Skin elasticity: a smooth random displacement field (a few pixels).
@@ -123,7 +125,7 @@ def synthetic_impression(image: np.ndarray, rng: np.random.Generator, strength: 
     tx, ty = rng.uniform(-25, 25, 2) * strength
     M = cv2.getRotationMatrix2D((W / 2, H / 2), angle, 1.0)
     M[:, 2] += (tx, ty)
-    img = cv2.warpAffine(img, M, (W, H), flags=cv2.INTER_LINEAR, borderValue=int(np.median(image)))
+    img = cv2.warpAffine(img, M, (W, H), flags=cv2.INTER_LINEAR, borderValue=background)
 
     # Pressure: dry (thin ridges) or wet (thick ridges).
     k = np.ones((2, 2), np.uint8)

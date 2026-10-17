@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Callable, Optional
 
 import cv2
@@ -62,6 +63,8 @@ class DropArea(QFrame):
     """Drag-and-drop or browse for a fingerprint image."""
 
     fileSelected = Signal(str)
+    fileRejected = Signal(str)
+    start_dir: str = ""          # shared by every DropArea: last folder used (or the demo prints)
 
     def __init__(self, prompt: str = "Drop a fingerprint image here"):
         super().__init__()
@@ -81,16 +84,36 @@ class DropArea(QFrame):
         lay.addWidget(browse, 0, Qt.AlignCenter)
 
     def browse(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Choose a fingerprint image", "", IMAGE_FILTER)
+        path, _ = QFileDialog.getOpenFileName(self, "Choose a fingerprint image", DropArea.start_dir,
+                                              IMAGE_FILTER + ";;All files (*)")
         if path:
             self.set_path(path)
 
-    def set_path(self, path: str) -> None:
+    def set_path(self, path: str) -> bool:
+        """Show a preview of `path`; returns False (and emits fileRejected) if it can't be read."""
+        name = os.path.basename(path)
+        img = None
+        if not os.path.isfile(path):
+            problem = f"File not found: {name}"
+        elif not path.lower().endswith(IMAGE_EXTS):
+            problem = f"'{name}' is not a supported image type ({', '.join(IMAGE_EXTS)})"
+        else:
+            try:
+                img = cv2.imdecode(np.fromfile(path, np.uint8), cv2.IMREAD_GRAYSCALE)
+            except (cv2.error, OSError, ValueError):
+                img = None
+            problem = None if img is not None else f"'{name}' could not be read: the file is damaged or not an image"
+        if problem:
+            self.clear()
+            self.fileRejected.emit(problem)
+            return False
         self.path = path
-        img = cv2.imdecode(np.fromfile(path, np.uint8), cv2.IMREAD_GRAYSCALE)
+        DropArea.start_dir = os.path.dirname(path)
         self.view.set_image(img)
-        self.name.setText(path.replace("\\", "/").split("/")[-1])
+        self.name.setText(name)
+        self.name.setToolTip(path)
         self.fileSelected.emit(path)
+        return True
 
     def clear(self) -> None:
         self.path = None
@@ -101,7 +124,7 @@ class DropArea(QFrame):
     # drag and drop
     def dragEnterEvent(self, e):  # noqa: N802
         urls = e.mimeData().urls()
-        if urls and urls[0].toLocalFile().lower().endswith(IMAGE_EXTS):
+        if urls and urls[0].isLocalFile():
             self.setProperty("hover", True)
             self.style().polish(self)
             e.acceptProposedAction()
@@ -201,6 +224,6 @@ class Task(QRunnable):
         try:
             result = self.fn(*self.args, **self.kwargs)
         except Exception as e:  # noqa: BLE001 - shown to the user
-            self.signals.failed.emit(str(e))
+            self.signals.failed.emit(str(e) or type(e).__name__)
         else:
             self.signals.done.emit(result)

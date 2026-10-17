@@ -17,3 +17,6 @@ results/
 samples/*
 !samples/README.md
 data/
+
+# Per-user settings (if a data folder is pointed inside the repo)
+settings.json

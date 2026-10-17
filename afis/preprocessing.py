@@ -66,6 +66,7 @@ class PreprocessResult:
     quality: float
     median_wavelength: float
     timings: Dict[str, float] = field(default_factory=dict)
+    ridge_fraction: float = 1.0          # share of finger blocks with a clear, plausible ridge spacing
 
     def stages(self) -> Dict[str, np.ndarray]:
         """8-bit images for display, in pipeline order."""
@@ -123,7 +124,7 @@ class PreprocessingPipeline:
         t["orientation"] = time.perf_counter() - s
 
         s = time.perf_counter()
-        frequency, median_wl = self.frequency(norm, orientation, mask)
+        frequency, median_wl, ridge_fraction = self.frequency(norm, orientation, mask, with_fraction=True)
         t["frequency"] = time.perf_counter() - s
 
         s = time.perf_counter()
@@ -136,7 +137,7 @@ class PreprocessingPipeline:
         skeleton = skeletonize(binary)
         t["skeleton"] = time.perf_counter() - s
 
-        quality = self.quality(mask, coherence)
+        quality = self.quality(mask, coherence, ridge_fraction)
         total = time.perf_counter() - t0
         t["total"] = total
 
@@ -148,7 +149,7 @@ class PreprocessingPipeline:
             raw=raw_image, normalized=norm, mask=mask, orientation=orientation,
             coherence=coherence, frequency=frequency, enhanced=enhanced,
             binary=binary, skeleton=skeleton, quality=quality,
-            median_wavelength=median_wl, timings=t,
+            median_wavelength=median_wl, timings=t, ridge_fraction=ridge_fraction,
         )
 
     # ------------------------------------------------------------------ stages
@@ -217,18 +218,23 @@ class PreprocessingPipeline:
         coherence = np.sqrt((gxx - gyy) ** 2 + 4 * gxy ** 2) / (gxx + gyy + 1e-12)
         return orientation, np.clip(coherence, 0, 1)
 
-    def frequency(self, norm: np.ndarray, orientation: np.ndarray, mask: np.ndarray):
-        """Block-wise ridge frequency; returns (frequency map, median wavelength in px)."""
+    def frequency(self, norm: np.ndarray, orientation: np.ndarray, mask: np.ndarray, with_fraction: bool = False):
+        """
+        Block-wise ridge frequency; returns (frequency map, median wavelength in px),
+        plus the fraction of finger blocks with a valid wavelength if `with_fraction`.
+        """
         c = self.config
         b = c.freq_block_size
         h, w = norm.shape
         freq = np.zeros_like(norm)
         wavelengths = []
+        blocks = 0
 
         for r in range(0, h - b + 1, b // 2):
             for col in range(0, w - b + 1, b // 2):
                 if mask[r:r + b, col:col + b].mean() < 0.8:
                     continue
+                blocks += 1
                 wl = self._block_wavelength(norm[r:r + b, col:col + b],
                                             orientation[r:r + b, col:col + b])
                 if wl:
@@ -238,6 +244,8 @@ class PreprocessingPipeline:
         median_wl = float(np.median(wavelengths)) if wavelengths else 9.0
         freq[(freq == 0) & mask] = 1.0 / median_wl
         freq[~mask] = 0
+        if with_fraction:
+            return freq, median_wl, (len(wavelengths) / blocks if blocks else 0.0)
         return freq, median_wl
 
     def _block_wavelength(self, block: np.ndarray, orient_block: np.ndarray) -> Optional[float]:
@@ -318,13 +326,17 @@ class PreprocessingPipeline:
         return binary
 
     @staticmethod
-    def quality(mask: np.ndarray, coherence: np.ndarray) -> float:
-        """Simple 0..1 quality: finger area x mean ridge-flow coherence inside it."""
+    def quality(mask: np.ndarray, coherence: np.ndarray, ridge_fraction: float = 1.0) -> float:
+        """
+        0..1 quality from finger area, ridge-flow coherence and how much of the
+        finger shows a clear ridge spacing. Noise has low coherence; smooth blobs
+        or photos are coherent but have no plausible ridge spacing.
+        """
         if not mask.any():
             return 0.0
-        area = min(1.0, mask.mean() / 0.5)
+        area = min(1.0, mask.mean() / 0.4)
         coh = float(np.mean(coherence[mask]))
-        return float(np.clip(0.4 * area + 0.6 * coh, 0, 1))
+        return float(np.clip((0.2 * area + 0.8 * coh) * (0.3 + 0.7 * ridge_fraction), 0, 1))
 
     def get_statistics(self) -> Dict[str, Any]:
         times = self.stats["processing_times"]

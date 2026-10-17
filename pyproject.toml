@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "afis"
-version = "2.0.0"
+dynamic = ["version"]
 description = "Automated Fingerprint Identification System: enhancement, minutiae extraction, matching and an encrypted template store, with a desktop GUI."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -12,23 +12,35 @@ license = { text = "MIT" }
 authors = [{ name = "Faith Alabi (SPACEIO)" }]
 dependencies = [
   "numpy>=1.24",
-  "opencv-python>=4.8",
+  "opencv-python-headless>=4.8",
   "scipy>=1.10",
   "scikit-image>=0.21",
   "cryptography>=41",
-  "matplotlib>=3.7",
   "PySide6-Essentials>=6.6",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7"]
+eval = ["matplotlib>=3.7"]
+dev = ["pytest>=7", "matplotlib>=3.7", "pyinstaller>=6.6"]
 
 [project.scripts]
 afis = "afis.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/thespaceio/AFIS"
+Issues = "https://github.com/thespaceio/AFIS/issues"
+
+[project.gui-scripts]
 afis-gui = "afis.gui.app:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "afis.__version__" }
 
 [tool.setuptools.packages.find]
 include = ["afis*"]
+
+[tool.setuptools.package-data]
+afis = ["demo_prints/*.png"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,0 +1,5 @@
+# Tests, evaluation plots and packaging
+-r requirements.txt
+pytest>=7
+matplotlib>=3.7
+pyinstaller>=6.6

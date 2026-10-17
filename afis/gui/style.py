@@ -76,5 +76,17 @@ QScrollArea {{ border: none; background: transparent; }}
 QScrollBar:vertical {{ background: {BLACK}; width: 10px; }}
 QScrollBar::handle:vertical {{ background: {LINE}; border-radius: 5px; min-height: 30px; }}
 QStatusBar {{ background: {BLACK}; color: {GRAY}; border-top: 1px solid {LINE}; }}
+QDialog, QMessageBox, QInputDialog, QFileDialog {{ background: {PANEL}; }}
+QMessageBox QLabel {{ color: {WHITE}; }}
+QMenuBar {{ background: {BLACK}; border-bottom: 1px solid {LINE}; }}
+QMenuBar::item {{ padding: 6px 12px; background: transparent; }}
+QMenuBar::item:selected {{ background: {PANEL_2}; }}
+QMenu {{ background: {PANEL}; border: 1px solid {LINE}; padding: 4px; }}
+QMenu::item {{ padding: 6px 22px; border-radius: 6px; }}
+QMenu::item:selected {{ background: {PANEL_2}; }}
+QCheckBox {{ spacing: 10px; }}
+QCheckBox::indicator {{ width: 18px; height: 18px; border: 1px solid {LINE}; border-radius: 4px; background: {BLACK}; }}
+QCheckBox::indicator:checked {{ background: {GREEN}; border-color: {GREEN}; }}
+QTreeView, QListView {{ background: {BLACK}; border: 1px solid {LINE}; }}
 QToolTip {{ background: {PANEL}; border: 1px solid {LINE}; color: {WHITE}; padding: 6px; }}
 """

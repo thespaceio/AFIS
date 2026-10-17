@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import unicodedata
 import uuid
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -25,7 +26,33 @@ FINGER_NAMES = {
 
 
 class EnrollmentError(ValueError):
-    """The print isn't good enough to enrol."""
+    """The print isn't good enough to enrol, or the details are invalid."""
+
+
+PERSON_ID_MAX = 64
+_PERSON_ID_PUNCT = set(" ._-@'")
+
+
+def _id_char_ok(ch: str, first: bool) -> bool:
+    cat = unicodedata.category(ch)
+    if cat[0] in "LN":                      # letters and digits in any script
+        return True
+    if first:
+        return False
+    return cat[0] == "M" or ch in _PERSON_ID_PUNCT   # combining accents (e.g. Yoruba tone marks)
+
+
+def validate_person_id(person_id: str) -> str:
+    """Trimmed ID of 1-64 letters, digits, spaces and . _ - @ ' (no control characters or paths)."""
+    pid = (person_id or "").strip()
+    if not pid:
+        raise EnrollmentError("Person ID cannot be empty")
+    if len(pid) > PERSON_ID_MAX:
+        raise EnrollmentError(f"Person ID is too long (max {PERSON_ID_MAX} characters)")
+    pid = unicodedata.normalize("NFC", pid)
+    if not all(_id_char_ok(ch, k == 0) for k, ch in enumerate(pid)):
+        raise EnrollmentError("Person ID may only contain letters, digits, spaces and . _ - @ '")
+    return pid
 
 
 @dataclass
@@ -44,13 +71,15 @@ class AFISSystem:
     MIN_ENROL_MINUTIAE = 12
     MIN_ENROL_QUALITY = 0.35
 
-    def __init__(self, db_path: str = "afis_templates.db", key: Optional[bytes] = None, store_images: bool = True):
+    def __init__(self, db_path: str = "afis_templates.db", key: Optional[bytes] = None, store_images: bool = True,
+                 threshold: Optional[float] = None):
         """
         Args:
             db_path: SQLite file (':memory:' for a throw-away database).
             key: Fernet key; defaults to AFIS_KEY or a key file next to the database.
             store_images: keep an encrypted copy of each enrolment image so the GUI
                 can show matched minutiae side by side. Set False to store templates only.
+            threshold: match threshold (default: MatcherConfig.threshold).
         """
         self.acquisition = FingerprintAcquisition()
         self.preprocessor = PreprocessingPipeline()
@@ -58,7 +87,20 @@ class AFISSystem:
         self.matcher = FingerprintMatcher()
         self.database = TemplateDatabase(db_path, key)
         self.store_images = store_images
+        if threshold is not None:
+            self.threshold = threshold
         self.last: Optional[ProcessedPrint] = None
+
+    @property
+    def threshold(self) -> float:
+        return self.matcher.config.threshold
+
+    @threshold.setter
+    def threshold(self, value: float) -> None:
+        value = float(value)
+        if not 0.0 < value <= 1.0:
+            raise ValueError("Threshold must be between 0 and 1")
+        self.matcher.config.threshold = value
 
     # ------------------------------------------------------------------ pipeline
     def process(self, source: ImageSource) -> ProcessedPrint:
@@ -70,9 +112,9 @@ class AFISSystem:
 
     # ------------------------------------------------------------------ operations
     def enroll(self, source: ImageSource, person_id: str, finger_position: int = 0) -> FingerprintTemplate:
-        person_id = person_id.strip()
-        if not person_id:
-            raise EnrollmentError("Person ID cannot be empty")
+        person_id = validate_person_id(person_id)
+        if not 0 <= int(finger_position) <= 10:
+            raise EnrollmentError("Finger position must be 0-10")
         p = self.process(source)
         if p.result.quality < self.MIN_ENROL_QUALITY:
             raise EnrollmentError(f"Image quality too low ({p.result.quality:.2f}). Try a clearer print.")
@@ -88,6 +130,7 @@ class AFISSystem:
     def verify(self, source: ImageSource, claimed_id: str,
                threshold: Optional[float] = None) -> Tuple[bool, float, Dict[str, Any]]:
         """1:1 - does this print belong to `claimed_id`? Returns (is_match, score, details)."""
+        claimed_id = (claimed_id or "").strip()
         refs = self.database.load_templates_by_person(claimed_id)
         if not refs:
             return False, 0.0, {"error": f"No templates enrolled for '{claimed_id}'"}
@@ -120,6 +163,34 @@ class AFISSystem:
 
     def delete_person(self, person_id: str) -> int:
         return self.database.delete_person_templates(person_id)
+
+    def delete_template(self, fingerprint_id: str) -> bool:
+        return self.database.delete_template(fingerprint_id)
+
+    def delete_all(self, confirm: str) -> int:
+        """Delete every template. `confirm` must be the word DELETE, so it can't happen by accident."""
+        if confirm != "DELETE":
+            raise ValueError("Type DELETE to confirm deleting every template")
+        return self.database.delete_all_templates()
+
+    def check_integrity(self) -> Dict[str, Any]:
+        """Decrypt every template and re-check the audit chain."""
+        return {"templates": self.database.check_integrity(), "audit": self.database.verify_audit()}
+
+    def enroll_demo(self, fingers: int = 6, progress=None) -> List[str]:
+        """
+        Enrol synthetic demo people (demo-01 ...) and return their IDs. Each gets
+        impression 1; impressions 2-3 are left for the user to verify / identify.
+        """
+        from .demo import demo_people
+        enrolled = []
+        for k, (pid, images) in enumerate(demo_people(fingers)):
+            if progress:
+                progress(k, fingers)
+            if not self.database.load_templates_by_person(pid):
+                self.enroll(images[0], pid, 2)
+            enrolled.append(pid)
+        return enrolled
 
     def reference_image(self, fingerprint_id: str) -> Optional[np.ndarray]:
         png = self.database.load_image(fingerprint_id)

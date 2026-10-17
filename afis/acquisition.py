@@ -5,10 +5,17 @@ from __future__ import annotations
 import os
 from typing import Dict, Union
 
-import cv2
 import numpy as np
 
+# OpenCV reads this limit lazily on the first decode; it stops decompression bombs
+# from allocating gigabytes before our own checks run.
+os.environ.setdefault("OPENCV_IO_MAX_IMAGE_PIXELS", "40000000")
+
+import cv2  # noqa: E402
+
 SUPPORTED_FORMATS = {".tif", ".tiff", ".bmp", ".png", ".jpg", ".jpeg", ".pgm"}
+MAX_FILE_BYTES = 40 * 1024 * 1024       # refuse absurdly large files before decoding them
+MAX_PIXELS = 40_000_000                 # e.g. a crafted PNG that decompresses to gigabytes
 
 
 class AcquisitionError(ValueError):
@@ -36,27 +43,52 @@ class FingerprintAcquisition:
         if isinstance(source, np.ndarray):
             image = source
             if image.ndim == 3:
-                image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                code = cv2.COLOR_BGRA2GRAY if image.shape[2] == 4 else cv2.COLOR_BGR2GRAY
+                image = cv2.cvtColor(image, code)
         elif isinstance(source, (bytes, bytearray)):
-            image = cv2.imdecode(np.frombuffer(source, np.uint8), cv2.IMREAD_GRAYSCALE)
-            if image is None:
-                raise AcquisitionError("Could not decode the image data")
+            if len(source) > MAX_FILE_BYTES:
+                raise AcquisitionError("Image data is too large")
+            image = self._decode(bytes(source), "the image data")
         else:
             path = os.fspath(source)
             if not os.path.isfile(path):
                 raise FileNotFoundError(f"Image not found: {path}")
             ext = os.path.splitext(path)[1].lower()
             if ext not in SUPPORTED_FORMATS:
-                raise AcquisitionError(f"Unsupported format '{ext}'. Use one of: {', '.join(sorted(SUPPORTED_FORMATS))}")
-            # imdecode handles non-ASCII Windows paths that cv2.imread can't.
-            image = cv2.imdecode(np.fromfile(path, np.uint8), cv2.IMREAD_GRAYSCALE)
-            if image is None:
-                raise AcquisitionError(f"Could not decode image: {path}")
+                raise AcquisitionError(f"Unsupported file type '{ext or 'none'}'. "
+                                       f"Use one of: {', '.join(sorted(SUPPORTED_FORMATS))}")
+            size = os.path.getsize(path)
+            if size == 0:
+                raise AcquisitionError(f"The file is empty: {os.path.basename(path)}")
+            if size > MAX_FILE_BYTES:
+                raise AcquisitionError(f"The file is too large ({size / 1e6:.0f} MB; limit "
+                                       f"{MAX_FILE_BYTES // 1_000_000} MB)")
+            # Read bytes ourselves: imdecode handles non-ASCII Windows paths that cv2.imread can't.
+            with open(path, "rb") as fh:
+                image = self._decode(fh.read(), os.path.basename(path))
 
+        if image.ndim != 2 or image.size == 0:
+            raise AcquisitionError("Expected a grayscale or colour image")
+        if image.dtype != np.uint8:
+            image = cv2.normalize(image.astype(np.float32), None, 0, 255, cv2.NORM_MINMAX)
         image = np.ascontiguousarray(image.astype(np.uint8))
         self._validate(image)
         image = self._limit_size(image)
         self.stats["images_loaded"] += 1
+        return image
+
+    @staticmethod
+    def _decode(data: bytes, name: str) -> np.ndarray:
+        """Decode by content (not extension) with a pixel-count guard."""
+        buf = np.frombuffer(data, np.uint8)
+        try:
+            image = cv2.imdecode(buf, cv2.IMREAD_GRAYSCALE)
+        except cv2.error as e:
+            raise AcquisitionError(f"Could not read {name}: the file is damaged or not an image") from e
+        if image is None:
+            raise AcquisitionError(f"Could not read {name}: the file is damaged or not a supported image")
+        if image.size > MAX_PIXELS:
+            raise AcquisitionError(f"{name} is too large ({image.shape[1]}x{image.shape[0]} pixels)")
         return image
 
     # Kept for compatibility with the original API.

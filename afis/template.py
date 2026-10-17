@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional
 
 from .features import Minutia
 
-TEMPLATE_VERSION = 2
+TEMPLATE_VERSION = 3
 
 
 @dataclass
@@ -28,6 +28,7 @@ class FingerprintTemplate:
     finger_position: int = 0
     created_at: Optional[str] = None
     template_hash: Optional[str] = None
+    version: int = TEMPLATE_VERSION
 
     def __post_init__(self):
         if self.created_at is None:
@@ -36,16 +37,27 @@ class FingerprintTemplate:
             self.template_hash = self.compute_hash()
 
     def compute_hash(self) -> str:
-        """SHA-256 over the minutiae: detects any change to a stored template."""
-        payload = json.dumps([m.to_list() for m in self.minutiae], separators=(",", ":"))
-        return hashlib.sha256(payload.encode()).hexdigest()
+        """
+        SHA-256 over the identity and the minutiae.
+
+        Binding the person and template IDs into the hash means a template
+        can't be moved to another person's record without detection.
+        Version-2 templates (AFIS 2.0) hashed the minutiae only.
+        """
+        minutiae = [m.to_list() for m in self.minutiae]
+        if self.version < 3:
+            payload = minutiae
+        else:
+            payload = {"fingerprint_id": self.fingerprint_id, "person_id": self.person_id,
+                       "finger_position": self.finger_position, "minutiae": minutiae}
+        return hashlib.sha256(json.dumps(payload, separators=(",", ":")).encode()).hexdigest()
 
     def is_intact(self) -> bool:
         return self.template_hash == self.compute_hash()
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "version": TEMPLATE_VERSION,
+            "version": self.version,
             "fingerprint_id": self.fingerprint_id,
             "person_id": self.person_id,
             "finger_position": self.finger_position,
@@ -65,6 +77,7 @@ class FingerprintTemplate:
             finger_position=int(data.get("finger_position", 0)),
             created_at=data.get("created_at"),
             template_hash=data.get("template_hash"),
+            version=int(data.get("version", 2)),
         )
 
     def to_json(self) -> str:
