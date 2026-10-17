@@ -56,6 +56,8 @@ class ErrorRates:
             "genuine_mean": round(float(np.mean(self.genuine)), 4) if len(self.genuine) else 0.0,
             "impostor_mean": round(float(np.mean(self.impostor)), 4) if len(self.impostor) else 0.0,
             "impostor_max": round(float(np.max(self.impostor)), 4) if len(self.impostor) else 0.0,
+            "rates_by_threshold": {f"{t:.2f}": [round(self.far_at(t), 5), round(self.frr_at(t), 4)]
+                                   for t in np.arange(0.08, 0.305, 0.02)},
         }
 
 

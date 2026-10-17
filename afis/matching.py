@@ -30,8 +30,8 @@ from .template import FingerprintTemplate
 
 @dataclass
 class MatcherConfig:
-    neighbours: int = 6                  # k nearest neighbours per local structure
-    local_dist_tol: float = 10.0         # px
+    neighbours: int = 8                  # k nearest neighbours per local structure
+    local_dist_tol: float = 14.0         # px (8 / 14 chosen by scripts/tune.py on FVC2000+FVC2004)
     local_angle_tol: float = np.radians(25)
     candidates: int = 12                 # alignments tried
     match_dist_tol: float = 12.0         # px after alignment

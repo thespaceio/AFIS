@@ -12,6 +12,12 @@ on:
 permissions:
   contents: read
 
+# Edit GRID (JSON, see GRID in scripts/tune.py) and the shard list to change the search.
+# Current setting: calibrate the chosen configuration against the previous defaults.
+env:
+  GRID: '{"match_dist_tol":[12.0],"match_angle_tol_deg":[25],"candidates":[12],"local_dist_tol":[10.0,14.0],"neighbours":[6,8],"min_overlap_count":[18]}'
+  SHARDS: 1
+
 jobs:
   tune:
     runs-on: ubuntu-22.04
@@ -19,7 +25,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+        shard: [0]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -48,9 +54,9 @@ jobs:
             done
           done
           [[ $got -gt 0 ]] || { echo "::error::no tuning databases could be downloaded"; exit 1; }
-      - name: Grid search (shard ${{ matrix.shard }} of 8)
+      - name: Grid search (shard ${{ matrix.shard }})
         run: |
-          python scripts/tune.py data/*/ --impostor-sample 800 --shard ${{ matrix.shard }}/8 \
+          python scripts/tune.py data/*/ --impostor-sample 0 --grid "$GRID" --shard ${{ matrix.shard }}/$SHARDS \
             --out results/tune-${{ matrix.shard }}.csv
       - uses: actions/upload-artifact@v5
         with:

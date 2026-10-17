@@ -113,14 +113,18 @@ def main() -> None:
         row = dict(params, eer=round(r.eer, 4), eer_threshold=round(r.eer_threshold, 4),
                    frr_at_far_1pct=round(r.frr_at(t_far1), 4), threshold_far_1pct=round(t_far1, 4),
                    frr_at_far_01pct=round(r.frr_at(t_far01), 4), threshold_far_01pct=round(t_far01, 4),
-                   seconds=round(time.perf_counter() - t0, 1))
+                   seconds=round(time.perf_counter() - t0, 1),
+                   rates_by_threshold=r.summary()["rates_by_threshold"])
         rows.append(row)
         print(json.dumps(row), flush=True)
 
+    if not rows:
+        print("No configurations in this shard.")
+        return
     rows.sort(key=lambda r: (r["frr_at_far_1pct"], r["eer"]))
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with open(args.out, "w", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=list(rows[0]))
+        w = csv.DictWriter(fh, fieldnames=[k for k in rows[0] if k != "rates_by_threshold"], extrasaction="ignore")
         w.writeheader()
         w.writerows(rows)
     print("\nBest 10 (by FRR at FAR = 1%, then EER):")
