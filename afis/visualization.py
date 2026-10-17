@@ -15,6 +15,7 @@ BIFURCATION = (235, 140, 30)  # blue
 CORE = (40, 40, 230)          # red
 DELTA = (0, 200, 230)         # yellow
 MATCH = (0, 204, 106)
+WEAK = (36, 165, 245)          # amber: pairings found for a non-match
 
 
 def to_bgr(image: np.ndarray) -> np.ndarray:
@@ -48,8 +49,9 @@ def draw_minutiae(image: np.ndarray, minutiae: Iterable[Minutia],
 
 
 def draw_match(img1: np.ndarray, min1: List[Minutia], img2: np.ndarray, min2: List[Minutia],
-               pairs: List[Tuple[int, int]], gap: int = 20) -> np.ndarray:
-    """Two prints side by side with lines joining matched minutiae."""
+               pairs: List[Tuple[int, int]], gap: int = 20, is_match: bool = True) -> np.ndarray:
+    """Two prints side by side with lines joining matched minutiae (amber if the pair didn't match)."""
+    colour = MATCH if is_match else WEAK
     a = draw_minutiae(img1, min1, scale=1)
     b = draw_minutiae(img2, min2, scale=1)
     h = max(a.shape[0], b.shape[0])
@@ -60,9 +62,9 @@ def draw_match(img1: np.ndarray, min1: List[Minutia], img2: np.ndarray, min2: Li
     for i, j in pairs:
         p = (min1[i].x, min1[i].y)
         q = (min2[j].x + off, min2[j].y)
-        cv2.line(canvas, p, q, MATCH, 1, cv2.LINE_AA)
-        cv2.circle(canvas, p, 5, MATCH, 2, cv2.LINE_AA)
-        cv2.circle(canvas, q, 5, MATCH, 2, cv2.LINE_AA)
+        cv2.line(canvas, p, q, colour, 1, cv2.LINE_AA)
+        cv2.circle(canvas, p, 5, colour, 2, cv2.LINE_AA)
+        cv2.circle(canvas, q, 5, colour, 2, cv2.LINE_AA)
     return canvas
 
 

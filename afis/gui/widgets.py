@@ -7,7 +7,7 @@ from typing import Callable, Optional
 
 import cv2
 import numpy as np
-from PySide6.QtCore import QObject, QRunnable, Qt, Signal, Slot
+from PySide6.QtCore import QObject, QRunnable, QSize, Qt, Signal, Slot
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (QFileDialog, QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QSizePolicy,
                                QVBoxLayout, QWidget)
@@ -41,6 +41,13 @@ class ImageView(QLabel):
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.setObjectName("muted")
         self.setWordWrap(True)
+        self._min_height = min_height
+
+    def minimumSizeHint(self) -> QSize:  # noqa: N802 - don't let the pixmap force the layout wider
+        return QSize(60, self._min_height)
+
+    def sizeHint(self) -> QSize:  # noqa: N802
+        return QSize(200, self._min_height)
 
     def set_image(self, image: Optional[np.ndarray]) -> None:
         if image is None:

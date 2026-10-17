@@ -105,6 +105,7 @@ class BasePage(QWidget):
         drop = DropArea()
         drop.setMinimumWidth(260)
         drop.setMaximumWidth(340)
+        drop.setMaximumHeight(430)
         drop.fileRejected.connect(self.win.warn)
         return drop
 
@@ -178,7 +179,7 @@ class AnalysePage(BasePage):
         top = QHBoxLayout()
         self.drop = self.drop_area()
         self.drop.fileSelected.connect(self.run)
-        top.addWidget(self.drop)
+        top.addWidget(self.drop, 0, Qt.AlignTop)
 
         self.stats = StatGrid(["Quality", "Minutiae", "Endings", "Bifurcations", "Pattern", "Processing time"], 3)
         self.overlay = ImageView("Choose an image: the minutiae overlay appears here", 300)
@@ -249,7 +250,7 @@ class EnrollPage(BasePage):
                                        "Add a person's print to the encrypted template database."))
         row = QHBoxLayout()
         self.drop = self.drop_area()
-        row.addWidget(self.drop)
+        row.addWidget(self.drop, 0, Qt.AlignTop)
 
         form = Card("Details")
         self.person = QLineEdit()
@@ -317,7 +318,7 @@ class MatchView(Card):
         self.score_text = QLabel("")
         self.score_text.setObjectName("muted")
         self.score_text.setWordWrap(True)
-        self.picture = ImageView("", 320)
+        self.picture = ImageView("", 260)
         for w in (self.verdict, self.bar, self.score_text):
             self.body.addWidget(w)
         self.body.addWidget(self.picture, 1)
@@ -339,7 +340,7 @@ class MatchView(Card):
         self.picture.set_image(None)
 
 
-def match_picture(afis: AFISSystem, details: dict) -> Optional[np.ndarray]:
+def match_picture(afis: AFISSystem, details: dict, is_match: bool = True) -> Optional[np.ndarray]:
     fid = details.get("fingerprint_id")
     if not fid or afis.last is None:
         return None
@@ -347,7 +348,8 @@ def match_picture(afis: AFISSystem, details: dict) -> Optional[np.ndarray]:
     ref_img = afis.reference_image(fid)
     if ref_t is None or ref_img is None:
         return draw_minutiae(afis.last.image, afis.last.minutiae)
-    return draw_match(afis.last.image, afis.last.minutiae, ref_img, ref_t.minutiae, details.get("pairs", []))
+    return draw_match(afis.last.image, afis.last.minutiae, ref_img, ref_t.minutiae, details.get("pairs", []),
+                      is_match=is_match)
 
 
 class VerifyPage(BasePage):
@@ -364,10 +366,11 @@ class VerifyPage(BasePage):
         self.button = QPushButton("Verify")
         self.button.setObjectName("primary")
         self.button.clicked.connect(self.verify)
-        left.addWidget(self.drop, 1)
+        left.addWidget(self.drop)
         left.addWidget(QLabel("Claimed identity"))
         left.addWidget(self.person)
         left.addWidget(self.button)
+        left.addStretch(1)
         row.addLayout(left)
         self.result = MatchView("Result")
         row.addWidget(self.result, 1)
@@ -398,7 +401,7 @@ class VerifyPage(BasePage):
         person = self._claimed
         head = f"✓ MATCH — consistent with {person}" if ok else f"✗ NO MATCH — does not match {person}"
         self.result.display(ok, head, score, thr, f"{details.get('matched_minutiae', 0)} matched minutiae")
-        self.result.picture.set_image(match_picture(self.afis, details))
+        self.result.picture.set_image(match_picture(self.afis, details, ok))
 
 
 class IdentifyPage(BasePage):
@@ -412,14 +415,15 @@ class IdentifyPage(BasePage):
         self.button = QPushButton("Search database")
         self.button.setObjectName("primary")
         self.button.clicked.connect(self.identify)
-        left.addWidget(self.drop, 1)
+        left.addWidget(self.drop)
         left.addWidget(self.button)
+        left.addStretch(1)
         row.addLayout(left)
 
         right = QVBoxLayout()
         self.result = MatchView("Best candidate")
-        self.table = make_table(["Rank", "Person", "Score", "Matched minutiae"], 120)
-        self.table.setMaximumHeight(200)
+        self.table = make_table(["Rank", "Person", "Score", "Matched minutiae"], 150)
+        self.table.setMaximumHeight(190)
         right.addWidget(self.result, 1)
         right.addWidget(self.table)
         row.addLayout(right, 1)
@@ -448,7 +452,7 @@ class IdentifyPage(BasePage):
         pid, score, d = ranked[0]
         head = f"✓ CANDIDATE: {pid}" if d["is_match"] else "✗ No candidate above the threshold"
         self.result.display(d["is_match"], head, score, thr, f"{d.get('matched_minutiae', 0)} matched minutiae")
-        self.result.picture.set_image(match_picture(self.afis, d))
+        self.result.picture.set_image(match_picture(self.afis, d, d["is_match"]))
 
 
 class DatabasePage(BasePage):

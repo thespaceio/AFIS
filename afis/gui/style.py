@@ -75,6 +75,9 @@ QProgressBar::chunk {{ background: {GREEN}; border-radius: 5px; }}
 QScrollArea {{ border: none; background: transparent; }}
 QScrollBar:vertical {{ background: {BLACK}; width: 10px; }}
 QScrollBar::handle:vertical {{ background: {LINE}; border-radius: 5px; min-height: 30px; }}
+QScrollBar:horizontal {{ background: {BLACK}; height: 10px; }}
+QScrollBar::handle:horizontal {{ background: {LINE}; border-radius: 5px; min-width: 30px; }}
+QScrollBar::add-line, QScrollBar::sub-line {{ width: 0; height: 0; }}
 QStatusBar {{ background: {BLACK}; color: {GRAY}; border-top: 1px solid {LINE}; }}
 QDialog, QMessageBox, QInputDialog, QFileDialog {{ background: {PANEL}; }}
 QMessageBox QLabel {{ color: {WHITE}; }}
