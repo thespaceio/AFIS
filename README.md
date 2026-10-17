@@ -181,7 +181,57 @@ Synthetic prints ([`afis/synthetic.py`](afis/synthetic.py)) follow SFinGe (Cappe
 
 ## Accuracy
 
-Run `python scripts/evaluate.py` on your own data to measure FAR, FRR and EER. Results on FVC2002 and on synthetic fingers will be added here when the evaluation runs finish.
+**Short version:** on real fingerprints from the public FVC2002 databases, AFIS rejects about 40% of genuine single-impression attempts at its default threshold, while accepting about 0.17% of impostor attempts. Enrolling three impressions per finger halves the rejections. Treat AFIS as a learning tool, not as a dependable identity check.
+
+All numbers below come from [`scripts/evaluate.py`](scripts/evaluate.py), run by the [Accuracy workflow](.github/workflows/evaluate.yml) on GitHub Actions. That workflow downloads the FVC2002 databases from the official University of Bologna site at run time; the images are never stored in this repository.
+
+### Real fingerprints: FVC2002 DB1–DB4 "B" (held-out test set)
+
+Four sensors × 10 fingers × 8 impressions = 320 images. These images were **not** used to tune AFIS (see [Methodology](#methodology)).
+
+| Set | Sensor type | EER | FAR @ 0.18 | FRR @ 0.18 | FRR @ FAR = 1% |
+|---|---|---|---|---|---|
+| DB1_B | optical | 17.8% | 0 / 45 | 35.4% | 27.1% |
+| DB2_B | optical | 9.4% | 0 / 45 | 23.6% | 16.4% |
+| DB3_B | capacitive | 22.0% | 0 / 45 | 61.1% | 34.6% |
+| DB4_B | synthetic (SFinGe) | 18.2% | 0 / 45 | 40.7% | 40.7% |
+| **All four, single impression** | | **15.3%** | **0.17%** | **40.2%** | **30.4%** |
+| **All four, 3 impressions enrolled** | | **9.4%** | **0.55%** | **21.5%** | **20.0%** |
+
+- **Pooled single impression:** 1,120 genuine and 49,920 impostor comparisons (every cross-finger pair within each sensor).
+- **Per-sensor rows** use the FVC protocol: 280 genuine and only 45 impostor pairs, so a FAR of 0 there only means "below roughly 7%" at 95% confidence. Use the pooled row for FAR.
+- **3 impressions enrolled:** impressions 1–3 of each finger are enrolled and impressions 4–8 are probes. A probe's score is its best match over the person's templates, which is how *Verify* works. That gives 200 genuine and 7,800 impostor attempts.
+- **Failure to enrol:** 1.9% of images (6 of 320) fall below the enrolment quality gate.
+- **Diagnostics:** median 26 minutiae per image, median 9 matched minutiae in genuine pairs.
+- **Speed:** about 0.15 s to process an image and 1.6 ms per comparison on a GitHub runner.
+
+The default threshold (0.18) was chosen on separate tuning data. You can change it under **Settings**. The full trade-off, pooled single impression:
+
+| Threshold | 0.10 | 0.12 | 0.14 | 0.16 | **0.18** | 0.20 | 0.25 |
+|---|---|---|---|---|---|---|---|
+| FAR | 7.3% | 2.0% | 1.2% | 0.35% | **0.17%** | 0.05% | 0.02% |
+| FRR | 21.0% | 28.9% | 30.0% | 38.7% | **40.2%** | 48.9% | 56.1% |
+
+### Synthetic fingerprints (sanity check only)
+
+On 100 synthetic fingers × 8 impressions (2,800 genuine and 316,800 impostor comparisons, all cross-finger pairs), AFIS reaches EER 0.39%, with FAR 0.83% and FRR 0.32% at the 0.18 threshold. Synthetic prints are far cleaner than real captures, so these numbers only show that the pipeline works end to end. They are **not** a measure of real-world accuracy. The synthetic FAR is *higher* than on real data because the generator reuses a handful of orientation-field templates, which makes different synthetic fingers look alike.
+
+Reproduce with `python scripts/evaluate.py --synthetic 100 --impressions 8 --all-impostors`.
+
+### Methodology
+
+1. **Tuning set:** FVC2000 and FVC2004, DB1–DB4 "B" (640 images from 8 sensors), downloaded in CI by [`tune.yml`](.github/workflows/tune.yml).
+2. **Search:** [`scripts/tune.py`](scripts/tune.py) grid-searched 96 matcher configurations (alignment tolerances, neighbour count, local-structure tolerance, number of candidate alignments, overlap floor).
+3. **Outcome:** scored on all impostor pairs, every reasonable setting performed the same (EER 22.8–24.0%, FRR 48–49% at FAR = 1%). So the original settings were kept, and the threshold was set where the tuning FAR is about 0.2% (0.18).
+4. **Test:** FVC2002 was then evaluated once with those settings and is reported above.
+
+### Limitations: please read
+
+- **Small data.** 40 real fingers is far too few to estimate low error rates precisely or to predict performance on other sensors or populations. The FVC2002 B sets are also old (2002) and small.
+- **Sensor dependence.** Error rates vary by a factor of two or more between sensors (DB2 vs DB3). Your scanner may do better or much worse.
+- **Weakest link: feature extraction.** Real prints yield few reliable minutiae (median 26, and only 9 matched in genuine pairs). Matcher tuning didn't help, which points at enhancement and minutiae extraction as the main thing to improve.
+- **Not comparable to commercial or forensic systems.** Top algorithms reach well under 1% EER on these databases. AFIS is an educational implementation.
+- **No independent validation.** Nothing here has been reviewed by a third party. Results are probabilistic and must never be the sole basis for a decision about a person.
 
 ## Security & privacy
 
@@ -218,7 +268,7 @@ Summary below. See [SECURITY.md](SECURITY.md) for the full design and its limits
 | "…its key file … is missing" | Restore the `.key` file from your backup. Without it the templates can't be decrypted. To start fresh, move the old `.db` away |
 | "Image quality too low" / "Only N minutiae found" | Use a sharper, larger, ~500 dpi grayscale scan of a single fingertip |
 | "could not be read: the file is damaged or not an image" | The file is corrupt or not an image. Supported formats: PNG, TIFF, BMP, JPEG, PGM |
-| Genuine prints are rejected | Enrol 2–3 impressions per finger (verify uses the best one), or lower the threshold slightly under **Settings** (this increases false accepts) |
+| Genuine prints are rejected | Expected fairly often on real scans (see [Accuracy](#accuracy)). Enrol 2–3 impressions per finger under the same ID; this halved false rejections on FVC2002. You can also lower the threshold under **Settings**, at the cost of more false accepts (0.14 gives about 1% FAR) |
 | Windows: "Windows protected your PC" | Click **More info → Run anyway** (the app isn't code-signed) |
 | macOS: "cannot be opened because the developer cannot be verified" | Right-click `AFIS.app` → **Open**, or `xattr -dr com.apple.quarantine AFIS.app` |
 
@@ -226,7 +276,7 @@ Summary below. See [SECURITY.md](SECURITY.md) for the full design and its limits
 
 ```bash
 pip install -e ".[dev]"
-python -m pytest -q                          # 101 tests: engine, security, CLI, GUI (off-screen), data handling
+python -m pytest -q                          # 103 tests: engine, security, CLI, GUI (off-screen), data handling
 python -m afis.gui --smoke-test              # opens the real window, enrols and identifies demo prints, exits
 python scripts/evaluate.py --synthetic 50    # accuracy on generated fingers
 python scripts/evaluate.py path/to/FVC2002/DB1_B path/to/FVC2002/DB2_B --all-impostors

@@ -30,7 +30,12 @@ Open AFIS → **Home** → **Load demo data** → **Identify** → *Browse…* �
 - A CLI covering every feature, with scriptable exit codes (`afis --help`)
 - Accuracy evaluation tooling (FAR, FRR and EER) and a synthetic fingerprint generator
 
-See the README for accuracy figures and their limitations.
+### Accuracy: please read
+Measured on the public FVC2002 databases (real fingerprints from 4 sensors, held out from tuning):
+- **One impression enrolled:** EER 15.3%. At the default threshold, about 0.2% of impostors are accepted and 40% of genuine attempts are rejected.
+- **Three impressions enrolled per finger:** EER 9.4%, with 21.5% of genuine attempts rejected.
+
+AFIS is a learning tool, far from commercial accuracy. See the README for full results, methodology and limitations.
 
 ### Responsible use
 Match scores are probabilistic. AFIS is educational software and has **not** been validated for forensic, legal or law-enforcement decisions. Only enrol people who have given informed consent.
