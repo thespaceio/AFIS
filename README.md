@@ -230,6 +230,7 @@ Reproduce with `python scripts/evaluate.py --synthetic 100 --impressions 8 --all
 - **Small data.** 40 real fingers is far too few to estimate low error rates precisely or to predict performance on other sensors or populations. The FVC2002 B sets are also old (2002) and small.
 - **Sensor dependence.** Error rates vary by a factor of two or more between sensors (DB2 vs DB3). Your scanner may do better or much worse.
 - **Weakest link: feature extraction.** Real prints yield few reliable minutiae (median 26, and only 9 matched in genuine pairs). Matcher tuning didn't help, which points at enhancement and minutiae extraction as the main thing to improve.
+- **Scores are not symmetric.** Matching print A against B can give a different score from B against A, because the alignment search starts from A's minutiae. AFIS always compares the query against the enrolled template, so its results are consistent, but the asymmetry is a sign of a noisy alignment step.
 - **Not comparable to commercial or forensic systems.** Top algorithms reach well under 1% EER on these databases. AFIS is an educational implementation.
 - **No independent validation.** Nothing here has been reviewed by a third party. Results are probabilistic and must never be the sole basis for a decision about a person.
 
