@@ -49,7 +49,7 @@ jobs:
           done
       - name: Evaluate all four databases (all cross-finger impostor pairs)
         run: |
-          python scripts/evaluate.py data/DB1_B data/DB2_B data/DB3_B data/DB4_B --all-impostors \
+          python scripts/evaluate.py data/DB1_B data/DB2_B data/DB3_B data/DB4_B --all-impostors --gallery 3 \
             --out results/all --title "FVC2002 DB1-4_B, all impostor pairs"
       - name: Summary
         run: |
@@ -66,6 +66,11 @@ jobs:
           print("| Set | Images | Genuine | Impostor | EER | FAR @0.18 | FRR @0.18 | FRR @FAR=1% | Below enrol gate |")
           print("|---|---|---|---|---|---|---|---|---|")
           print("\n".join(rows))
+          m = json.loads(pathlib.Path("results/all/summary.json").read_text()).get("multi_enrolment")
+          if m:
+              print(f"\nMulti-impression enrolment (gallery of {m['gallery_size']}): EER {m['eer']*100:.2f}%, "
+                    f"FAR {m['far_at_current_threshold']*100:.2f}% / FRR {m['frr_at_current_threshold']*100:.2f}% "
+                    f"at 0.18, FRR {m['frr_at_far_1pct']*100:.2f}% at FAR=1%")
           EOF
           cat "$GITHUB_STEP_SUMMARY"
           for d in DB1_B DB2_B DB3_B DB4_B all; do echo "== $d"; cat results/$d/summary.json; done

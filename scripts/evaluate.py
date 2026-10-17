@@ -72,12 +72,39 @@ def load_fingers(folders, augment: int, mirror: bool, seed: int, synthetic: int 
     return fingers
 
 
+def multi_enrolment(templates, k: int, matcher) -> dict:
+    """Error rates when each finger is enrolled with its first k impressions (best score over the gallery)."""
+    by_finger = defaultdict(list)
+    for (f, i), t in sorted(templates.items()):
+        by_finger[f].append(t)
+    galleries = {f: ts[:k] for f, ts in by_finger.items() if len(ts) > k}
+    probes = {f: by_finger[f][k:] for f in galleries}
+    genuine, impostor = [], []
+    for f, ps in probes.items():
+        for p in ps:
+            genuine.append(max(matcher.match_templates(p, g)[0] for g in galleries[f]))
+            # One impostor attempt per probe against each other finger's gallery.
+            for f2, gal in galleries.items():
+                if f2 != f:
+                    impostor.append(max(matcher.match_templates(p, g)[0] for g in gal))
+    r = error_rates(genuine, impostor)
+    thr = matcher.config.threshold
+    return {"gallery_size": k, "genuine_attempts": len(genuine), "impostor_attempts": len(impostor),
+            "eer": round(r.eer, 4), "far_at_current_threshold": round(r.far_at(thr), 5),
+            "frr_at_current_threshold": round(r.frr_at(thr), 4),
+            "frr_at_far_1pct": round(r.frr_at(r.threshold_for_far(0.01)), 4),
+            "rates_by_threshold": r.summary()["rates_by_threshold"]}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("folders", type=Path, nargs="*", help="folders of <finger>_<impression> images")
     ap.add_argument("--synthetic", type=int, default=0, help="add this many generated fingers")
     ap.add_argument("--impressions", type=int, default=8, help="impressions per generated finger")
     ap.add_argument("--title", default=None, help="title for the report")
+    ap.add_argument("--gallery", type=int, default=0,
+                    help="also report multi-impression enrolment: the first K impressions of each finger are "
+                         "enrolled, the rest are probes, and a probe's score is its best score over a gallery")
     ap.add_argument("--augment", type=int, default=0, help="synthetic impressions to add per finger")
     ap.add_argument("--mirror", action="store_true", help="add mirrored prints as extra fingers")
     ap.add_argument("--all-impostors", action="store_true",
@@ -134,6 +161,8 @@ def main() -> None:
 
     rates = error_rates(genuine, impostor)
     summary = rates.summary()
+    if args.gallery:
+        summary["multi_enrolment"] = multi_enrolment(templates, args.gallery, matcher)
     n_imgs = sum(len(v) for v in fingers.values())
     thr = matcher.config.threshold
     summary.update({
