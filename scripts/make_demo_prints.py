@@ -24,16 +24,22 @@ from afis.synthetic import generate_impressions, generate_master  # noqa: E402
 from afis.system import AFISSystem  # noqa: E402
 
 
-def search(min_genuine: float, max_impostor: float, start: int) -> list:
+def _templates(afis, seed, pattern):
+    imgs = generate_impressions(generate_master(seed, pattern), DEMO_IMPRESSIONS)
+    return [afis.process(i).as_template() for i in imgs]
+
+
+def search(min_genuine: float, max_impostor: float, start: int, patterns=DEMO_PATTERNS, keep=()) -> list:
+    """Pick one seed per pattern; `keep` pins the seeds of the first patterns (to resume a search)."""
     afis, matcher = AFISSystem(":memory:"), FingerprintMatcher()
-    chosen, seeds = [], []
+    seeds = list(keep)
+    chosen = [_templates(afis, s, p) for s, p in zip(keep, patterns)]
     seed = start
-    for pattern in DEMO_PATTERNS:
+    for pattern in patterns[len(keep):]:
         while True:
             seed += 1
-            imgs = generate_impressions(generate_master(seed, pattern), DEMO_IMPRESSIONS)
             try:
-                temps = [afis.process(i).as_template() for i in imgs]
+                temps = _templates(afis, seed, pattern)
             except ValueError:
                 continue
             if min(len(t.minutiae) for t in temps) < AFISSystem.MIN_ENROL_MINUTIAE:
@@ -59,9 +65,13 @@ if __name__ == "__main__":
     ap.add_argument("--min-genuine", type=float, default=0.25)
     ap.add_argument("--max-impostor", type=float, default=0.10)
     ap.add_argument("--start", type=int, default=3000)
+    ap.add_argument("--patterns", default=",".join(DEMO_PATTERNS), help="comma-separated pattern per finger")
+    ap.add_argument("--keep", default="", help="comma-separated seeds to keep for the first fingers")
     args = ap.parse_args()
     if args.search:
-        print("DEMO_SEEDS =", search(args.min_genuine, args.max_impostor, args.start))
+        keep = [int(x) for x in args.keep.split(",") if x]
+        print("DEMO_SEEDS =", search(args.min_genuine, args.max_impostor, args.start,
+                                     args.patterns.split(","), keep))
     else:
         out = args.out or demo_dir()
         files = write_demo_prints(out)
