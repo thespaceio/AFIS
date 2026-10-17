@@ -115,10 +115,13 @@ def main() -> None:
 
     genuine, impostor = [], []
     t0 = time.perf_counter()
+    genuine_matched = []
     for f, imps in fingers.items():
         idxs = [i for i in range(len(imps)) if (f, i) in templates]
         for i, j in itertools.combinations(idxs, 2):
-            genuine.append(matcher.match_templates(templates[(f, i)], templates[(f, j)])[0])
+            score, details = matcher.match_templates(templates[(f, i)], templates[(f, j)])
+            genuine.append(score)
+            genuine_matched.append(details.get("matched_minutiae", 0))
     if args.all_impostors:
         keys = sorted(templates)
         impostor_pairs = [(a, b) for a, b in itertools.combinations(keys, 2) if a[0] != b[0]]
@@ -141,6 +144,8 @@ def main() -> None:
         "below_enrolment_gate": low_quality,
         "failure_to_enrol_rate": round(low_quality / max(1, n_imgs), 4),
         "quality_median": round(float(np.median(qualities)), 3) if qualities else None,
+        "minutiae_median": float(np.median([len(t.minutiae) for t in templates.values()])) if templates else None,
+        "genuine_matched_median": float(np.median(genuine_matched)) if genuine_matched else None,
         "min_measurable_far": round(1 / max(1, len(impostor)), 6),
         "far_upper_95_if_zero": round(3 / max(1, len(impostor)), 6),
         "avg_extract_seconds": round(t_extract / max(1, n_imgs), 3),
