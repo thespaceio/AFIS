@@ -274,7 +274,9 @@ class EnrollPage(BasePage):
         for w in (QLabel("Person ID"), self.person, QLabel("Finger"), self.finger, self.button, self.message):
             form.body.addWidget(w)
         form.body.addWidget(self.preview, 1)
-        form.body.addWidget(note_label("Only enrol people who have agreed to it. Letters, digits, spaces and "
+        form.body.addWidget(note_label("Tip: enrol 2–3 impressions of the same finger under the same ID — "
+                                       "verification uses the best match, which cuts false rejections. "
+                                       "Only enrol people who have agreed to it. Letters, digits, spaces and "
                                        ". _ - @ ' are allowed in IDs."))
         row.addWidget(form, 1)
         self.lay.addLayout(row)
