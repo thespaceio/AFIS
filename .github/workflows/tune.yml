@@ -1,0 +1,58 @@
+name: Tune matcher (FVC2000 + FVC2004)
+
+# Grid-searches matcher parameters on the public FVC2000 and FVC2004 "B"
+# databases, downloaded at run time from the official FVC sites. FVC2002 is
+# deliberately NOT used here: it is the held-out set reported by evaluate.yml.
+on:
+  workflow_dispatch:
+  push:
+    branches: ["claude/**"]
+    paths: ["scripts/tune.py", ".github/workflows/tune.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  tune:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install .
+      - name: Download FVC2000 and FVC2004 B sets (official sites)
+        run: |
+          mkdir -p data && cd data
+          got=0
+          for year in 2000 2004; do
+            for db in DB1_B DB2_B DB3_B DB4_B; do
+              dest="fvc$year-$db"
+              for url in "http://bias.csr.unibo.it/fvc$year/Downloads/$db.zip" \
+                         "https://bias.csr.unibo.it/fvc$year/Downloads/$db.zip"; do
+                if curl -fsSL --retry 3 --max-time 300 -o "$dest.zip" "$url"; then
+                  mkdir -p "$dest" && unzip -q -o "$dest.zip" -d "$dest"
+                  find "$dest" -mindepth 2 -type f -exec mv -t "$dest" {} + 2>/dev/null || true
+                  n=$(ls "$dest" | grep -Eci '\.(tif|bmp|png)$' || true)
+                  echo "$dest: $n images"
+                  [[ $n -gt 0 ]] && got=$((got + 1)) || rm -rf "$dest"
+                  break
+                fi
+              done
+            done
+          done
+          [[ $got -gt 0 ]] || { echo "::error::no tuning databases could be downloaded"; exit 1; }
+      - name: Grid search (shard ${{ matrix.shard }} of 8)
+        run: |
+          python scripts/tune.py data/*/ --impostor-sample 800 --shard ${{ matrix.shard }}/8 \
+            --out results/tune-${{ matrix.shard }}.csv
+      - uses: actions/upload-artifact@v5
+        with:
+          name: tune-${{ matrix.shard }}
+          path: results/
