@@ -4,6 +4,7 @@ Bundled demo prints.
 `afis/demo_prints/` holds synthetic fingerprints made with `afis.synthetic`
 (6 fingers x 4 impressions, named demo-<finger>_<impression>.png). They are
 not real people's fingerprints, so they can be shipped and shared freely.
+The set is curated for clear demo results (see DEMO_SEEDS).
 Regenerate them with  `python scripts/make_demo_prints.py`.
 """
 
@@ -14,7 +15,10 @@ from pathlib import Path
 from typing import List, Tuple
 
 DEMO_PATTERNS = ["right_loop", "whorl", "left_loop", "arch", "tented_arch", "whorl"]
-DEMO_FIRST_SEED = 2027
+# Chosen by `scripts/make_demo_prints.py --search`: every impression of a demo finger matches
+# its other impressions (score >= 0.25) and scores <= 0.10 against every other demo finger.
+# The demo is curated to show clear results; it is easier than real data.
+DEMO_SEEDS = [3001, 3006, 3034, 3035, 3073, 3342]
 DEMO_IMPRESSIONS = 4
 
 
@@ -50,8 +54,8 @@ def write_demo_prints(folder: Path) -> List[Path]:
 
     folder.mkdir(parents=True, exist_ok=True)
     written = []
-    for f, pattern in enumerate(DEMO_PATTERNS, 1):
-        master = generate_master(DEMO_FIRST_SEED + f - 1, pattern)
+    for f, (pattern, seed) in enumerate(zip(DEMO_PATTERNS, DEMO_SEEDS), 1):
+        master = generate_master(seed, pattern)
         for i, img in enumerate(generate_impressions(master, DEMO_IMPRESSIONS), 1):
             path = folder / f"demo-{f:02d}_{i}.png"
             cv2.imwrite(str(path), img, [cv2.IMWRITE_PNG_COMPRESSION, 9])

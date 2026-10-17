@@ -112,3 +112,14 @@ def test_unknown_pattern_rejected():
     with pytest.raises(ValueError):
         generate_master(1, "spiral")
     assert len(PATTERNS) == 5
+
+
+def test_demo_prints_are_well_separated():
+    """The curated demo set must give clear results with the default matcher."""
+    import itertools
+    afis, matcher = AFISSystem(":memory:"), FingerprintMatcher()
+    t = {(pid, k): afis.process(p).as_template() for pid, paths in demo_people() for k, p in enumerate(paths)}
+    gen = [matcher.match_templates(t[a], t[b])[0] for a, b in itertools.combinations(t, 2) if a[0] == b[0]]
+    imp = [matcher.match_templates(t[a], t[b])[0] for a, b in itertools.combinations(t, 2) if a[0] != b[0]]
+    # The search checks one argument order; the matcher is not exactly symmetric, hence 0.12.
+    assert min(gen) >= 0.24 and max(imp) <= 0.12
