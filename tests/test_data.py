@@ -100,7 +100,7 @@ def test_genuine_scores_exceed_impostor_scores():
 
 def test_bundled_demo_prints_match_the_generator(tmp_path):
     files = demo_files()
-    assert len(files) == 24 and len(demo_people()) == 6
+    assert len(files) == 16 and len(demo_people()) == 4
     regenerated = write_demo_prints(tmp_path)
     same = sum(np.array_equal(cv2.imread(str(a), 0), cv2.imread(str(b), 0)) for a, b in zip(files, regenerated))
     # Identical with the pinned library versions; allow tiny drift across OpenCV/numpy releases.
@@ -115,14 +115,20 @@ def test_unknown_pattern_rejected():
 
 
 def test_demo_prints_are_well_separated():
-    """The curated demo set must give clear results with the default matcher."""
-    import itertools
+    """
+    The demo must give clear results the way the app uses it: impression 1 of each
+    demo person is enrolled, and impressions 2-4 are used on Verify / Identify,
+    compared as (query, enrolled) like AFISSystem does. (The matcher is not exactly
+    symmetric, so the direction matters.)
+    """
     afis, matcher = AFISSystem(":memory:"), FingerprintMatcher()
-    t = {(pid, k): afis.process(p).as_template() for pid, paths in demo_people() for k, p in enumerate(paths)}
-    gen = [matcher.match_templates(t[a], t[b])[0] for a, b in itertools.combinations(t, 2) if a[0] == b[0]]
-    imp = [matcher.match_templates(t[a], t[b])[0] for a, b in itertools.combinations(t, 2) if a[0] != b[0]]
-    # Scores drift a little across numpy/OpenCV versions (and the matcher is not exactly symmetric),
-    # so require a clear margin on both sides of the decision threshold rather than exact values.
+    people = demo_people()
+    t = {(pid, k): afis.process(p).as_template() for pid, paths in people for k, p in enumerate(paths)}
+    gen = [matcher.match_templates(t[(p, k)], t[(p, 0)])[0] for p, _ in people for k in (1, 2, 3)]
+    imp = [matcher.match_templates(t[(p, k)], t[(q, 0)])[0]
+           for p, _ in people for q, _ in people if p != q for k in (1, 2, 3)]
+    # Scores drift a little across numpy/OpenCV versions, so require a clear margin
+    # on both sides of the decision threshold rather than exact values.
     margin = 0.03
     assert min(gen) >= afis.threshold + margin
     assert max(imp) <= afis.threshold - margin

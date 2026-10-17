@@ -69,9 +69,9 @@ def test_demo_identify_verify_flow(app, win, dialogs):
 
     p["HomePage"].load_demo()
     settle(app, win)
-    assert "Enrolled 6 demo people" in p["HomePage"].demo_msg.text()
-    assert db.table.rowCount() == 6 and p["HomePage"].stats.values["People"].text() == "6"
-    assert p["VerifyPage"].person.count() == 6
+    assert "Enrolled 4 demo people" in p["HomePage"].demo_msg.text()
+    assert db.table.rowCount() == 4 and p["HomePage"].stats.values["People"].text() == "4"
+    assert p["VerifyPage"].person.count() == 4
 
     ident = p["IdentifyPage"]
     assert ident.drop.set_path(demo(3, 2))
@@ -170,23 +170,23 @@ def test_protected_deletes(app, win, dialogs):
     db.table.selectRow(visible[0])
     dialogs["answer"] = False                    # user clicks Cancel
     db.delete_selected()
-    assert "demo-02" in dialogs["ask"][-1] and db.table.rowCount() == 6
+    assert "demo-02" in dialogs["ask"][-1] and db.table.rowCount() == 4
     dialogs["answer"] = True
     db.delete_selected()
-    assert db.table.rowCount() == 5
+    assert db.table.rowCount() == 3
     db.filter.clear()
 
     db.table.selectRow(0)
     db.delete_selected_template()
-    assert db.table.rowCount() == 4
+    assert db.table.rowCount() == 2
 
     settings = p["SettingsPage"]
     dialogs["text"] = ("delete", True)           # wrong word: nothing happens
     settings.delete_all()
-    assert db.table.rowCount() == 4 and "Nothing was deleted" in dialogs["warn"][-1]
+    assert db.table.rowCount() == 2 and "Nothing was deleted" in dialogs["warn"][-1]
     dialogs["text"] = ("DELETE", False)          # cancelled
     settings.delete_all()
-    assert db.table.rowCount() == 4
+    assert db.table.rowCount() == 2
     dialogs["text"] = ("DELETE", True)
     settings.delete_all()
     assert win.afis.get_statistics()["total_templates"] == 0 and db.empty.isVisibleTo(db)

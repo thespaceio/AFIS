@@ -65,7 +65,7 @@ def main(out: Path) -> None:
     verify.person.setEditText("demo-02")
     verify.verify()
     shot(gui.VerifyPage, "gui_verify_match.png")
-    verify.person.setEditText("demo-05")
+    verify.person.setEditText("demo-04")
     verify.verify()
     shot(gui.VerifyPage, "gui_verify_reject.png")
 

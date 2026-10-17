@@ -85,9 +85,9 @@ Uninstalling **keeps your data**. To delete the database, key and settings as we
 ## Quick start
 
 1. Open AFIS. The first time, it explains responsible use. Click **I understand**.
-2. On **Home**, click **Load demo data**. This enrols six *synthetic* people (`demo-01` … `demo-06`) from prints that belong to no one.
+2. On **Home**, click **Load demo data**. This enrols four *synthetic* people (`demo-01` … `demo-04`) from prints that belong to no one.
 3. Open **Identify**, click **Browse…** (it opens the demo folder) and choose `demo-03_2.png`, then click **Search database**. AFIS should name **demo-03** and show the matched minutiae.
-4. Open **Verify**, choose `demo-02_3.png`, type `demo-02` and click **Verify** (a match). Then try `demo-05` (no match).
+4. Open **Verify**, choose `demo-02_3.png`, type `demo-02` and click **Verify** (a match). Then try `demo-04` (no match).
 5. Use **Analyse** to see every processing stage, and **Enroll** to add your own images.
 
 You can also drag and drop images onto any page. Keyboard shortcuts: **Ctrl+1 … Ctrl+8** switch pages, and **Ctrl+Q** quits.
@@ -276,7 +276,7 @@ Summary below. See [SECURITY.md](SECURITY.md) for the full design and its limits
 
 ```bash
 pip install -e ".[dev]"
-python -m pytest -q                          # 103 tests: engine, security, CLI, GUI (off-screen), data handling
+python -m pytest -q                          # 101 tests: engine, security, CLI, GUI (off-screen), data handling
 python -m afis.gui --smoke-test              # opens the real window, enrols and identifies demo prints, exits
 python scripts/evaluate.py --synthetic 50    # accuracy on generated fingers
 python scripts/evaluate.py path/to/FVC2002/DB1_B path/to/FVC2002/DB2_B --all-impostors

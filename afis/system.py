@@ -177,7 +177,7 @@ class AFISSystem:
         """Decrypt every template and re-check the audit chain."""
         return {"templates": self.database.check_integrity(), "audit": self.database.verify_audit()}
 
-    def enroll_demo(self, fingers: int = 6, progress=None) -> List[str]:
+    def enroll_demo(self, fingers: int = 4, progress=None) -> List[str]:
         """
         Enrol synthetic demo people (demo-01 ...) and return their IDs. Each gets
         impression 1; impressions 2-3 are left for the user to verify / identify.

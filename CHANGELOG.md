@@ -10,7 +10,7 @@
 ### Added
 - **Installable desktop app.** Self-contained bundles for Linux (AppImage and tar.gz), Windows (zip) and macOS (zip, Apple silicon). None of them needs Python. GitHub Actions builds and smoke-tests every bundle.
 - `install.sh` / `uninstall.sh` for Linux, including Kali: per-user install with a menu entry and launchers, plus a check for Qt system libraries. Uninstalling keeps your data unless you pass `--purge`.
-- **Home page** with a quick start and a **Load demo data** button. 24 synthetic demo prints (6 fingers × 4 impressions) ship with the app.
+- **Home page** with a quick start and a **Load demo data** button. 16 curated synthetic demo prints (4 fingers × 4 impressions) ship with the app.
 - **Settings page.** It covers the match threshold (saved between sessions), whether to keep encrypted enrolment images, the data and key locations, an integrity check, and delete-all with typed confirmation.
 - Database page: filter, delete a single template, delete a person (with confirmation), and an empty-state hint.
 - Audit page: **Verify log integrity** and **Export CSV**.

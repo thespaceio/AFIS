@@ -101,10 +101,10 @@ def test_wrong_key_is_a_clean_error(db, capsys, monkeypatch):
 
 def test_demo_and_default_location(capsys, tmp_path):
     code, out = run(capsys, "demo")
-    assert code == 0 and "demo-06" in out
+    assert code == 0 and "demo-04" in out
     assert (tmp_path / "afis_home" / "afis_templates.db").exists()
-    code, out = run(capsys, "identify", demo(5, 4))
-    assert code == 0 and "demo-05" in out
+    code, out = run(capsys, "identify", demo(4, 4))
+    assert code == 0 and "demo-04" in out
     code, out = run(capsys, "info")
     assert str(tmp_path / "afis_home") in out
 

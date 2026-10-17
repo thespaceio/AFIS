@@ -2,7 +2,7 @@
 Bundled demo prints.
 
 `afis/demo_prints/` holds synthetic fingerprints made with `afis.synthetic`
-(6 fingers x 4 impressions, named demo-<finger>_<impression>.png). They are
+(4 fingers x 4 impressions, named demo-<finger>_<impression>.png). They are
 not real people's fingerprints, so they can be shipped and shared freely.
 The set is curated for clear demo results (see DEMO_SEEDS).
 Regenerate them with  `python scripts/make_demo_prints.py`.
@@ -14,11 +14,14 @@ import sys
 from pathlib import Path
 from typing import List, Tuple
 
-DEMO_PATTERNS = ["right_loop", "whorl", "left_loop", "arch", "tented_arch", "whorl"]
-# Chosen by `scripts/make_demo_prints.py --search`: every impression of a demo finger matches
-# its other impressions (score >= 0.25) and scores <= 0.10 against every other demo finger.
+DEMO_PATTERNS = ["right_loop", "whorl", "left_loop", "arch"]
+# Chosen by `scripts/make_demo_prints.py --search`: a demo finger's impressions match each
+# other (score >= 0.28) and score low against the other demo fingers (<= 0.08 in the search's
+# comparison order; the worst query-vs-enrolled score as the app uses them is about 0.09).
+# A fifth finger meeting that bar was not found in ~2 CPU-hours of search, so the demo has
+# four people.
 # The demo is curated to show clear results; it is easier than real data.
-DEMO_SEEDS = [3001, 3006, 3034, 3035, 3073, 3342]
+DEMO_SEEDS = [3001, 3015, 3191, 3214]
 DEMO_IMPRESSIONS = 4
 
 
@@ -35,7 +38,7 @@ def demo_files() -> List[Path]:
     return sorted(demo_dir().glob("demo-*_*.png"))
 
 
-def demo_people(count: int = 6) -> List[Tuple[str, List[str]]]:
+def demo_people(count: int = 4) -> List[Tuple[str, List[str]]]:
     """[("demo-01", [path of impression 1, 2, ...]), ...] for the first `count` demo fingers."""
     people = {}
     for p in demo_files():

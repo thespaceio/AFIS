@@ -125,7 +125,7 @@ class HomePage(BasePage):
         start = Card("Quick start")
         steps = QLabel(
             "<ol style='margin-left:-20px; line-height:150%'>"
-            "<li><b>Load demo data</b> below: it enrols six synthetic people (demo-01 … demo-06).</li>"
+            "<li><b>Load demo data</b> below: it enrols four synthetic people (demo-01 … demo-04).</li>"
             "<li>Open <b>Identify</b>, click <i>Browse…</i> and pick a demo print such as "
             "<code>demo-03_2.png</code>. AFIS should name demo-03.</li>"
             "<li>Open <b>Verify</b> and check a print against a claimed identity.</li>"

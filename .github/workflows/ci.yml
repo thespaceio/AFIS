@@ -81,7 +81,7 @@ jobs:
           DEMO=$(/tmp/venv/bin/python -c "from afis.demo import demo_dir; print(demo_dir())")
           /tmp/venv/bin/afis identify "$DEMO/demo-04_3.png"
           /tmp/venv/bin/afis verify demo-02 "$DEMO/demo-02_2.png"
-          if /tmp/venv/bin/afis verify demo-02 "$DEMO/demo-05_2.png"; then echo "impostor accepted"; exit 1; fi
+          if /tmp/venv/bin/afis verify demo-02 "$DEMO/demo-04_2.png"; then echo "impostor accepted"; exit 1; fi
           /tmp/venv/bin/afis check
           /tmp/venv/bin/afis-gui --smoke-test
           test "$(stat -c %a $HOME/.local/share/afis/afis_templates.key)" = "600"

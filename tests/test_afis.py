@@ -172,13 +172,13 @@ def demo_system(tmp_path_factory):
 
 def test_demo_enrolment(demo_system):
     afis, people = demo_system
-    assert people == [f"demo-{k:02d}" for k in range(1, 7)]
-    assert afis.get_statistics()["total_templates"] == 6
+    assert people == [f"demo-{k:02d}" for k in range(1, 5)]
+    assert afis.get_statistics()["total_templates"] == 4
     assert afis.enroll_demo() == people                       # idempotent
-    assert afis.get_statistics()["total_templates"] == 6
+    assert afis.get_statistics()["total_templates"] == 4
 
 
-@pytest.mark.parametrize("finger", range(1, 7))
+@pytest.mark.parametrize("finger", range(1, 5))
 def test_demo_identify_every_finger(demo_system, finger):
     afis, _ = demo_system
     for impression in (2, 3, 4):
@@ -191,7 +191,7 @@ def test_demo_verify_genuine_and_impostor(demo_system):
     afis, _ = demo_system
     ok, score, details = afis.verify(demo(2, 3), "demo-02")
     assert ok and score >= afis.threshold and details["matched_minutiae"] >= 8
-    ok, score, _ = afis.verify(demo(2, 3), "demo-05")
+    ok, score, _ = afis.verify(demo(2, 3), "demo-04")
     assert not ok and score < afis.threshold
     ok, _, details = afis.verify(demo(2, 3), "nobody")
     assert not ok and "error" in details
