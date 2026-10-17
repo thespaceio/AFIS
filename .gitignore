@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+
+# Runtime data: templates, keys and logs must never be committed
+*.db
+*.db-journal
+*.key
+results/
+
+# Fingerprint images (biometric data)
+samples/*
+!samples/README.md
+data/
