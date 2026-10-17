@@ -53,7 +53,7 @@ def data_dir() -> Path:
         return secure_mkdir(Path(env).expanduser())
     legacy = Path.home() / ".afis"
     if legacy.is_dir() and (legacy / DB_NAME).exists():
-        return legacy
+        return secure_mkdir(legacy)        # created 0755 by AFIS 2.0: tighten it
     return secure_mkdir(_platform_dir())
 
 

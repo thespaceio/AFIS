@@ -23,7 +23,7 @@ MACOS (Apple silicon)
   Unzip and drag AFIS.app to Applications.
   The app is not notarised: the first time, right-click AFIS.app -> Open -> Open.
   (or run:  xattr -dr com.apple.quarantine /Applications/AFIS.app)
-  Command line: /Applications/AFIS.app/Contents/MacOS/afis --help
+  Command line: /Applications/AFIS.app/Contents/MacOS/afis-cli --help
   Uninstall: delete AFIS.app (data is in ~/Library/Application Support/AFIS).
 
 FIRST STEPS

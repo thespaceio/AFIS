@@ -1,6 +1,7 @@
 # PyInstaller spec: one folder with two programs sharing the same libraries.
 #   AFIS  (AFIS.exe / AFIS.app)  desktop app, no console window
-#   afis  (afis-cli.exe)         command-line tool
+#   afis  (afis-cli on Windows/macOS) command-line tool. macOS and Windows file systems are
+#         case-insensitive, so "afis" would overwrite "AFIS" there.
 # Build:  pyinstaller packaging/afis.spec --noconfirm
 import sys
 from pathlib import Path
@@ -40,7 +41,7 @@ common = [s for s in a.scripts if s[0] not in ("afis_gui_entry", "afis_cli_entry
 
 gui = EXE(pyz, common + gui_script, [], exclude_binaries=True, name="AFIS", console=False,
           icon=ICON, upx=False)
-cli = EXE(pyz, common + cli_script, [], exclude_binaries=True, name="afis-cli" if WIN else "afis",
+cli = EXE(pyz, common + cli_script, [], exclude_binaries=True, name="afis-cli" if (WIN or MAC) else "afis",
           console=True, icon=ICON, upx=False)
 coll = COLLECT(gui, cli, a.binaries, a.datas, name="AFIS", upx=False)
 

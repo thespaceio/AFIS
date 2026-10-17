@@ -28,7 +28,7 @@ jobs:
       version: ${{ steps.v.outputs.version }}
       publish: ${{ steps.v.outputs.publish }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - id: v
         env:
           GH_TOKEN: ${{ github.token }}
@@ -63,8 +63,8 @@ jobs:
       QT_QPA_PLATFORM: offscreen
       PYTHONUTF8: "1"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -87,14 +87,14 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          if [[ "$RUNNER_OS" == macOS ]]; then B=dist/AFIS.app/Contents/MacOS; DEMO=dist/AFIS.app/Contents/Resources/afis/demo_prints
-          else B=dist/AFIS; DEMO=dist/AFIS/_internal/afis/demo_prints; fi
+          if [[ "$RUNNER_OS" == macOS ]]; then B=dist/AFIS.app/Contents/MacOS; CLI=afis-cli; DEMO=dist/AFIS.app/Contents/Resources/afis/demo_prints
+          else B=dist/AFIS; CLI=afis; DEMO=dist/AFIS/_internal/afis/demo_prints; fi
           [[ -d "$DEMO" ]] || DEMO=$(find dist -type d -name demo_prints | head -1)
           export AFIS_HOME=$(mktemp -d)
-          "$B/afis" --version
-          "$B/afis" demo
-          "$B/afis" identify "$DEMO/demo-03_2.png"
-          "$B/afis" check
+          "$B/$CLI" --version
+          "$B/$CLI" demo
+          "$B/$CLI" identify "$DEMO/demo-03_2.png"
+          "$B/$CLI" check
           "$B/AFIS" --smoke-test
       - name: Smoke-test bundle (Windows)
         if: runner.os == 'Windows'
@@ -143,7 +143,7 @@ jobs:
           cp packaging/INSTALL.txt dist/
           ditto -c -k --keepParent dist/AFIS.app "AFIS-$VERSION-macos-arm64.zip"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: AFIS-${{ matrix.name }}
           path: |
@@ -163,8 +163,8 @@ jobs:
       VERSION: ${{ needs.version.outputs.version }}
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
         with:
           path: artifacts
           merge-multiple: true

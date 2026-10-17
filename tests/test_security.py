@@ -269,3 +269,15 @@ def test_gitignore_excludes_secrets():
     text = (Path(__file__).resolve().parents[1] / ".gitignore").read_text()
     for pattern in ("*.db", "*.key", "settings.json", "samples/*"):
         assert pattern in text
+
+
+def test_legacy_afis_folder_is_reused_and_tightened(tmp_path, monkeypatch):
+    monkeypatch.delenv("AFIS_HOME")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    legacy = tmp_path / ".afis"
+    legacy.mkdir(mode=0o755)
+    (legacy / "afis_templates.db").write_bytes(b"")
+    assert data_dir() == legacy
+    if os.name == "posix":
+        assert stat.S_IMODE(legacy.stat().st_mode) == 0o700

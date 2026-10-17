@@ -15,15 +15,15 @@ permissions:
 
 concurrency:
   group: evaluate-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false      # long run: let it finish, queue the next one
 
 jobs:
   fvc2002:
     runs-on: ubuntu-22.04
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -69,7 +69,7 @@ jobs:
           EOF
           cat "$GITHUB_STEP_SUMMARY"
           for d in DB1_B DB2_B DB3_B DB4_B all; do echo "== $d"; cat results/$d/summary.json; done
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: fvc2002-results
           path: results/
