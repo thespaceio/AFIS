@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Browser demo** (`web/`, published to GitHub Pages). It runs the real AFIS engine in the browser with Pyodide on the bundled synthetic prints, offering Identify, Verify, Analyse and an adjustable threshold. There's no upload: everything stays on the device, and the runtime is self-hosted rather than loaded from a CDN.
+- `scripts/build_web.py` builds the static site with a trimmed copy of Pyodide. `scripts/test_web.py` runs an end-to-end test in headless Chromium, checking results, page errors, external requests and phone layout.
+- The `Web demo` workflow builds and tests the site on every change and deploys it from `main`.
+
 ## 2.1.0: first public release
 
 ### Accuracy (measured, see README)

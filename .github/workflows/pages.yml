@@ -1,0 +1,82 @@
+name: Web demo
+
+# Builds the browser demo (web/), tests it in headless Chromium and, on main,
+# publishes it to GitHub Pages. Pyodide is downloaded here and never committed.
+
+on:
+  push:
+    branches: [main, "claude/**"]
+    paths: ["web/**", "afis/**", "scripts/build_web.py", "scripts/test_web.py", ".github/workflows/pages.yml"]
+  pull_request:
+    paths: ["web/**", "afis/**", "scripts/build_web.py", "scripts/test_web.py", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYODIDE_VERSION: "0.28.3"
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Cache Pyodide
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ~/pyodide
+          key: pyodide-${{ env.PYODIDE_VERSION }}
+      - name: Download Pyodide
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL --retry 3 -o /tmp/pyodide.tar.bz2 \
+            "https://github.com/pyodide/pyodide/releases/download/${PYODIDE_VERSION}/pyodide-${PYODIDE_VERSION}.tar.bz2"
+          tar xjf /tmp/pyodide.tar.bz2 -C ~
+          rm /tmp/pyodide.tar.bz2
+      - name: Build site
+        run: python scripts/build_web.py --pyodide ~/pyodide --out site
+      - name: Install test browser
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: Test in headless Chromium
+        run: python scripts/test_web.py site --screenshots screenshots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: web-demo-screenshots
+          path: screenshots
+          if-no-files-found: ignore
+      - uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        with:
+          path: site
+
+  deploy:
+    name: Publish to GitHub Pages
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - id: deployment
+        uses: actions/deploy-pages@v4
